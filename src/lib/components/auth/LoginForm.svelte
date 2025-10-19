@@ -101,17 +101,31 @@
       <div class="form-group">
         <label for="password">Password</label>
         <div class="password-input-container">
-          <input
-            id="password"
-            type={showPassword ? 'text' : 'password'}
-            bind:value={password}
-            on:input={clearErrors}
-            on:keydown={handleKeydown}
-            placeholder="Enter your password"
-            disabled={isSubmitting || $isLoading}
-            required
-            autocomplete="current-password"
-          />
+          {#if showPassword}
+            <input
+              id="password"
+              type="text"
+              bind:value={password}
+              on:input={clearErrors}
+              on:keydown={handleKeydown}
+              placeholder="Enter your password"
+              disabled={isSubmitting || $isLoading}
+              required
+              autocomplete="current-password"
+            />
+          {:else}
+            <input
+              id="password"
+              type="password"
+              bind:value={password}
+              on:input={clearErrors}
+              on:keydown={handleKeydown}
+              placeholder="Enter your password"
+              disabled={isSubmitting || $isLoading}
+              required
+              autocomplete="current-password"
+            />
+          {/if}
           <button
             type="button"
             class="password-toggle"

@@ -7,32 +7,57 @@ export default defineConfig({
 		include: ['src/**/*.{test,spec}.{js,ts}', 'tests/**/*.{test,spec}.{js,ts}']
 	},
 	define: {
-		// Enable AWS SDK v3 in browser
 		global: 'globalThis'
 	},
+	resolve: {
+		alias: {
+			// Polyfill Node.js modules for browser
+			stream: 'readable-stream',
+			'node:stream': 'readable-stream',
+			crypto: 'crypto-browserify',
+			buffer: 'buffer',
+			process: 'process/browser',
+			util: 'util',
+			events: 'events'
+		}
+	},
 	optimizeDeps: {
-		include: ['@aws-sdk/client-s3', '@aws-sdk/client-cognito-identity']
+		include: [
+			'@aws-sdk/client-s3',
+			'@aws-sdk/client-cognito-identity',
+			'buffer',
+			'process',
+			'readable-stream',
+			'crypto-browserify',
+			'util',
+			'events'
+		]
 	},
 	build: {
-		rollupOptions: {
-			output: {
-				manualChunks: {
-					// Separate AWS SDK into its own chunk
-					'aws-sdk': ['@aws-sdk/client-s3', '@aws-sdk/client-cognito-identity', '@aws-sdk/credential-providers'],
-					// Separate Milkdown editor into its own chunk
-					'editor': ['@milkdown/core', '@milkdown/preset-commonmark', '@milkdown/plugin-listener'],
-					// Separate utility libraries
-					'utils': ['dompurify']
-				}
-			}
-		},
-		// Enable code splitting
 		target: 'esnext',
 		minify: 'terser',
 		terserOptions: {
 			compress: {
 				drop_console: true,
 				drop_debugger: true
+			}
+		},
+		rollupOptions: {
+			external: [
+				// Exclude Node.js specific AWS SDK modules
+				/@aws-sdk.*node/,
+				/@smithy.*node/,
+				/node-http-handler/
+			],
+			output: {
+				manualChunks: (id) => {
+					if (id.includes('@aws-sdk')) {
+						return 'aws-sdk';
+					}
+					if (id.includes('node_modules')) {
+						return 'vendor';
+					}
+				}
 			}
 		}
 	}

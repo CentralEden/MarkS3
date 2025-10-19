@@ -100,18 +100,17 @@
     // Check if user has write permissions
     return authStore.hasPermission('write');
   }
+
+  // Computed title
+  $: pageTitle = isNew 
+    ? 'New Page - MarkS3'
+    : currentPage 
+    ? `Edit ${currentPage.title} - MarkS3`
+    : 'Edit Page - MarkS3';
 </script>
 
 <svelte:head>
-  <title>
-    {#if isNew}
-      New Page - MarkS3
-    {:else if currentPage}
-      Edit {currentPage.title} - MarkS3
-    {:else}
-      Edit Page - MarkS3
-    {/if}
-  </title>
+  <title>{pageTitle}</title>
 </svelte:head>
 
 <AuthGuard allowGuestAccess={false} requireAuth={true}>
