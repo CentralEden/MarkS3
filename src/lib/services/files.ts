@@ -12,6 +12,7 @@ import type {
 import { WikiError, ErrorCodes } from '../types/index.js';
 import { APP_CONFIG } from '../config/app.js';
 import { s3Service } from './s3.js';
+import { fileCache, prefetchService } from './cache.js';
 
 /**
  * File Service implementation

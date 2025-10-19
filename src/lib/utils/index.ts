@@ -29,3 +29,10 @@ export {
   validateFileUpload,
   generateSecureId
 } from './security.js';
+
+// Performance utilities
+export {
+  debounce,
+  throttle,
+  rafDebounce
+} from './debounce.js';

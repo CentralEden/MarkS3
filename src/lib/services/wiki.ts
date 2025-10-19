@@ -14,6 +14,7 @@ import type {
 } from '../types/index.js';
 import { WikiError, ErrorCodes } from '../types/index.js';
 import { s3Service } from './s3.js';
+import { pageCache, prefetchService } from './cache.js';
 
 /**
  * Wiki Service implementation
@@ -74,6 +75,12 @@ export class WikiService implements IWikiService {
         );
       }
 
+      // Invalidate caches
+      pageCache.invalidatePageCaches(path);
+
+      // Prefetch related pages
+      this.prefetchRelatedPages(path);
+
       return {
         ...newPage,
         etag: saveResult.etag
@@ -132,6 +139,14 @@ export class WikiService implements IWikiService {
         );
       }
 
+      // Update cache with new content
+      pageCache.setPageContent(path, content);
+      // Invalidate other caches
+      pageCache.invalidatePageCaches();
+
+      // Prefetch related pages
+      this.prefetchRelatedPages(path);
+
       return {
         ...updatedPage,
         etag: saveResult.etag
@@ -148,11 +163,37 @@ export class WikiService implements IWikiService {
   }
 
   /**
-   * Get a wiki page
+   * Get a wiki page with caching
    */
   async getPage(path: string): Promise<WikiPage> {
     try {
-      return await this.s3Service.getPage(path);
+      // Check cache first
+      const cachedContent = pageCache.getPageContent(path);
+      if (cachedContent) {
+        // Get metadata from cache or S3
+        const allPages = await this.getCachedPageList();
+        const pageMeta = allPages.find(p => p.path === path);
+        if (pageMeta) {
+          return {
+            path,
+            title: pageMeta.title,
+            content: cachedContent,
+            metadata: {
+              createdAt: pageMeta.createdAt,
+              updatedAt: pageMeta.updatedAt,
+              author: pageMeta.author,
+              version: 1, // TODO: Add version to metadata
+              tags: pageMeta.tags
+            }
+          };
+        }
+      }
+
+      // Fetch from S3 and cache
+      const page = await this.s3Service.getPage(path);
+      pageCache.setPageContent(path, page.content);
+      
+      return page;
     } catch (error) {
       if (error instanceof WikiError) {
         throw error;
@@ -191,6 +232,9 @@ export class WikiService implements IWikiService {
         }
       });
 
+      // Invalidate all page caches
+      pageCache.invalidatePageCaches(path);
+
       return {
         deletedPage: path,
         orphanedFiles,
@@ -216,8 +260,8 @@ export class WikiService implements IWikiService {
         return [];
       }
 
-      // Get all pages
-      const allPages = await this.s3Service.listPages();
+      // Get all pages with caching
+      const allPages = await this.getCachedPageList();
       const searchTerm = query.toLowerCase();
       const results: WikiPageMeta[] = [];
 
@@ -317,12 +361,22 @@ export class WikiService implements IWikiService {
   }
 
   /**
-   * Get page hierarchy as a tree structure
+   * Get page hierarchy as a tree structure with caching
    */
   async getPageHierarchy(): Promise<PageNode[]> {
     try {
-      const allPages = await this.s3Service.listPages();
-      return this.buildHierarchy(allPages);
+      // Check cache first
+      const cachedHierarchy = pageCache.getPageHierarchy();
+      if (cachedHierarchy) {
+        return cachedHierarchy;
+      }
+
+      // Build hierarchy and cache it
+      const allPages = await this.getCachedPageList();
+      const hierarchy = this.buildHierarchy(allPages);
+      pageCache.setPageHierarchy(hierarchy);
+      
+      return hierarchy;
     } catch (error) {
       if (error instanceof WikiError) {
         throw error;
@@ -850,6 +904,42 @@ export class WikiService implements IWikiService {
    */
   private escapeRegExp(string: string): string {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  /**
+   * Get cached page list or fetch from S3
+   */
+  private async getCachedPageList(): Promise<WikiPageMeta[]> {
+    const cached = pageCache.getPageList();
+    if (cached) {
+      return cached;
+    }
+
+    const pages = await this.s3Service.listPages();
+    pageCache.setPageList(pages);
+    return pages;
+  }
+
+  /**
+   * Prefetch related pages for performance
+   */
+  private prefetchRelatedPages(currentPath: string): void {
+    // Prefetch pages in the same directory
+    const pathParts = currentPath.split('/');
+    if (pathParts.length > 1) {
+      const parentDir = pathParts.slice(0, -1).join('/');
+      // This would need to be implemented with actual page discovery
+      // For now, just add to prefetch queue
+      prefetchService.prefetchPage(parentDir + '/index.md');
+    }
+
+    // Prefetch commonly accessed pages (could be based on analytics)
+    const commonPages = ['index.md', 'README.md', 'home.md'];
+    commonPages.forEach(page => {
+      if (page !== currentPath) {
+        prefetchService.prefetchPage(page);
+      }
+    });
   }
 }
 

@@ -4,6 +4,7 @@
   import { commonmark } from '@milkdown/preset-commonmark';
   import { nord } from '@milkdown/theme-nord';
   import { listener, listenerCtx } from '@milkdown/plugin-listener';
+  import { debounce } from '$lib/utils/debounce.js';
 
   const dispatch = createEventDispatcher<{
     change: { content: string };
@@ -15,11 +16,17 @@
   export let placeholder = 'Start writing your markdown...';
   export let readonly = false;
   export let autofocus = false;
+  export let debounceDelay = 300; // Debounce delay for change events in milliseconds
 
   // Component state
   let editorContainer: HTMLDivElement;
   let editor: Editor | null = null;
   let isInitialized = false;
+
+  // Create debounced change handler
+  const debouncedDispatch = debounce((content: string) => {
+    dispatch('change', { content });
+  }, debounceDelay);
 
   // Initialize the editor
   onMount(async () => {
@@ -31,10 +38,10 @@
           ctx.set(rootCtx, editorContainer);
           ctx.set(defaultValueCtx, content);
           
-          // Set up change listener
+          // Set up debounced change listener
           ctx.get(listenerCtx).markdownUpdated((ctx, markdown) => {
             if (isInitialized) {
-              dispatch('change', { content: markdown });
+              debouncedDispatch(markdown);
             }
           });
         })

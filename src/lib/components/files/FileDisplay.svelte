@@ -103,15 +103,29 @@
 
 <div class="file-display" class:compact>
   {#if isImage}
-    <!-- Image display -->
+    <!-- Image display with lazy loading -->
     <div class="image-container">
-      <img 
-        src={file.url} 
-        alt={file.filename}
-        loading="lazy"
-        on:error={handleImageError}
-        class:compact
-      />
+      {#await import('$lib/components/common/LazyImage.svelte')}
+        <!-- Loading fallback -->
+        <div class="image-loading">Loading image...</div>
+      {:then LazyImageModule}
+        <svelte:component 
+          this={LazyImageModule.default}
+          src={file.url}
+          alt={file.filename}
+          className={compact ? 'compact' : ''}
+        />
+      {:catch}
+        <!-- Fallback to regular img if lazy loading fails -->
+        <img 
+          src={file.url} 
+          alt={file.filename}
+          loading="lazy"
+          on:error={handleImageError}
+          class:compact
+        />
+      {/await}
+      
       <!-- Fallback link (hidden by default) -->
       <a 
         href={file.url} 
@@ -251,6 +265,25 @@
 
   .image-container img.compact {
     max-height: 200px;
+  }
+
+  .image-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100px;
+    color: #718096;
+    font-style: italic;
+  }
+
+  /* Lazy image component styles */
+  .image-container :global(.lazy-image-container.compact) {
+    max-height: 200px;
+  }
+
+  .image-container :global(.lazy-image-container) {
+    max-height: 400px;
+    width: 100%;
   }
 
   .file-link-container {
