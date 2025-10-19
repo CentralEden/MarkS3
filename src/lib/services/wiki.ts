@@ -855,3 +855,7 @@ export class WikiService implements IWikiService {
 
 // Export singleton instance
 export const wikiService = new WikiService(s3Service);
+
+// Initialize file service with wiki service reference
+import { initializeFileService } from './files.js';
+initializeFileService(wikiService);
