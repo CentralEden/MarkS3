@@ -37,8 +37,10 @@
   },
   "dependencies": {
     "@aws-sdk/client-cognito-identity": "^3.0.0",
+    "@aws-sdk/client-cognito-identity-provider": "^3.913.0",
     "@aws-sdk/client-s3": "^3.0.0",
     "@aws-sdk/credential-providers": "^3.0.0",
+    "@aws-sdk/types": "^3.910.0",
     "@milkdown/core": "^7.0.0",
     "@milkdown/plugin-listener": "^7.0.0",
     "@milkdown/preset-commonmark": "^7.0.0",
