@@ -1,0 +1,24 @@
+{
+  "enabled": true,
+  "name": "Sync Documentation Updates",
+  "description": "Automatically updates requirements, design, and task documents when any one of them changes to keep them synchronized",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "requirements.md",
+      "design.md",
+      "tasks.md",
+      "要件.md",
+      "設計.md",
+      "タスク.md",
+      "requirements.txt",
+      "design.txt",
+      "tasks.txt"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A document has been updated. Please review the changes and update the other related documents (requirements, design, and tasks) to ensure they remain consistent and synchronized with each other. Make sure all three documents reflect the same project state and any changes are propagated appropriately."
+  }
+}
