@@ -153,3 +153,5 @@ terraform.tfvars.json
 config/local.json
 config/production.json
 .env.production
+deploy.config.json
+*.tfplan

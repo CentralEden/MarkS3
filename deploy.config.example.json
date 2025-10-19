@@ -1,0 +1,11 @@
+{
+  "projectName": "marks3",
+  "environment": "prod",
+  "awsRegion": "us-east-1",
+  "bucketName": "my-unique-marks3-bucket",
+  "domainName": "wiki.example.com",
+  "createHostedZone": true,
+  "hostedZoneId": "",
+  "enableGuestAccess": true,
+  "cognitoUserPoolName": "marks3-prod-users"
+}
