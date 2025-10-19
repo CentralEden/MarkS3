@@ -32,6 +32,9 @@ export function validatePagePath(path: string): boolean {
   // Must end with .md
   if (!path.endsWith('.md')) return false;
   
+  // Check for relative path attempts
+  if (path.includes('..') || path.startsWith('/')) return false;
+  
   return true;
 }
 
