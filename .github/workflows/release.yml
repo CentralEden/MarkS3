@@ -1,0 +1,412 @@
+name: Release Management
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., 1.2.3)'
+        required: true
+        type: string
+      release_type:
+        description: 'Type of release'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - prerelease
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        type: boolean
+        default: false
+      draft:
+        description: 'Create as draft'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  validate-version:
+    name: Validate Version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.validate.outputs.version }}
+      is_valid: ${{ steps.validate.outputs.is_valid }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate version format
+        id: validate
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          
+          # Validate semantic version format
+          if [[ ! $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
+            echo "❌ Invalid version format: $VERSION"
+            echo "Version must follow semantic versioning (e.g., 1.2.3 or 1.2.3-beta.1)"
+            echo "is_valid=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+          # Check if version already exists
+          if git tag -l | grep -q "^v$VERSION$"; then
+            echo "❌ Version $VERSION already exists"
+            echo "is_valid=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+          # Get current version from package.json
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          echo "Current version: $CURRENT_VERSION"
+          echo "New version: $VERSION"
+          
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "is_valid=true" >> $GITHUB_OUTPUT
+
+  create-release-pr:
+    name: Create Release PR
+    runs-on: ubuntu-latest
+    needs: validate-version
+    if: needs.validate-version.outputs.is_valid == 'true'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: '8'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Update version in package.json
+        run: |
+          VERSION="${{ needs.validate-version.outputs.version }}"
+          npm version $VERSION --no-git-tag-version
+          echo "Updated package.json to version $VERSION"
+
+      - name: Update CHANGELOG.md
+        run: |
+          VERSION="${{ needs.validate-version.outputs.version }}"
+          DATE=$(date +%Y-%m-%d)
+          
+          # Create new changelog entry
+          sed -i "s/## \[Unreleased\]/## [Unreleased]\n\n## [$VERSION] - $DATE/" CHANGELOG.md
+          
+          echo "Updated CHANGELOG.md with version $VERSION"
+
+      - name: Create release branch
+        run: |
+          VERSION="${{ needs.validate-version.outputs.version }}"
+          BRANCH_NAME="release/v$VERSION"
+          
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          git checkout -b $BRANCH_NAME
+          git add package.json CHANGELOG.md
+          git commit -m "chore: prepare release v$VERSION"
+          git push origin $BRANCH_NAME
+          
+          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: release/v${{ needs.validate-version.outputs.version }}
+          title: "🚀 Release v${{ needs.validate-version.outputs.version }}"
+          body: |
+            ## Release v${{ needs.validate-version.outputs.version }}
+            
+            This PR prepares the release for version ${{ needs.validate-version.outputs.version }}.
+            
+            ### Changes
+            - Updated package.json version
+            - Updated CHANGELOG.md with release notes
+            
+            ### Release Type
+            ${{ github.event.inputs.release_type }}
+            
+            ### Pre-release
+            ${{ github.event.inputs.prerelease }}
+            
+            ### Checklist
+            - [ ] Version number is correct
+            - [ ] CHANGELOG.md is updated
+            - [ ] All tests pass
+            - [ ] Documentation is up to date
+            - [ ] Breaking changes are documented (if any)
+            
+            ### Next Steps
+            1. Review and approve this PR
+            2. Merge to main branch
+            3. GitHub Action will automatically create the release
+          labels: |
+            release
+            ${{ github.event.inputs.release_type }}
+          reviewers: |
+            # Add your team members here
+          assignees: |
+            # Add assignees here
+
+  build-and-test:
+    name: Build and Test Release
+    runs-on: ubuntu-latest
+    needs: [validate-version, create-release-pr]
+    
+    steps:
+      - name: Checkout release branch
+        uses: actions/checkout@v4
+        with:
+          ref: release/v${{ needs.validate-version.outputs.version }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: '8'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run tests
+        run: |
+          pnpm check
+          pnpm lint
+          pnpm test
+          pnpm build
+
+      - name: Validate Terraform
+        run: |
+          cd terraform/environments/prod
+          terraform init -backend=false
+          terraform validate
+
+      - name: Create release artifacts
+        run: |
+          VERSION="${{ needs.validate-version.outputs.version }}"
+          
+          # Create build archive
+          tar -czf "marks3-v$VERSION-build.tar.gz" build/
+          
+          # Create source archive
+          tar -czf "marks3-v$VERSION-source.tar.gz" \
+            --exclude=node_modules \
+            --exclude=.git \
+            --exclude=build \
+            --exclude=coverage \
+            --exclude=test-results \
+            .
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: release-artifacts-v${{ needs.validate-version.outputs.version }}
+          path: |
+            marks3-v${{ needs.validate-version.outputs.version }}-*.tar.gz
+          retention-days: 30
+
+  create-github-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [validate-version, build-and-test]
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download release artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: release-artifacts-v${{ needs.validate-version.outputs.version }}
+
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          VERSION="${{ needs.validate-version.outputs.version }}"
+          
+          # Extract changelog for this version
+          awk "/## \[$VERSION\]/{flag=1; next} /## \[/{flag=0} flag" CHANGELOG.md > release_notes.md
+          
+          # If no specific notes found, create generic ones
+          if [ ! -s release_notes.md ]; then
+            echo "### Changes in v$VERSION" > release_notes.md
+            echo "" >> release_notes.md
+            echo "See [CHANGELOG.md](CHANGELOG.md) for detailed changes." >> release_notes.md
+          fi
+          
+          # Add installation instructions
+          cat >> release_notes.md << EOF
+          
+          ### Installation
+          
+          #### Quick Start
+          \`\`\`bash
+          # Clone the repository
+          git clone https://github.com/YOUR_USERNAME/marks3.git
+          cd marks3
+          
+          # Install dependencies
+          pnpm install
+          
+          # Deploy infrastructure
+          cd terraform/environments/prod
+          terraform init
+          terraform apply
+          
+          # Build and deploy application
+          cd ../../../
+          pnpm build
+          pnpm run deploy:prod
+          \`\`\`
+          
+          #### Download Assets
+          - **Source Code**: Download the source code archive
+          - **Build Artifacts**: Download pre-built application files
+          
+          ### Documentation
+          - [Installation Guide](docs/deployment.md)
+          - [API Documentation](docs/api.md)
+          - [Architecture Guide](docs/architecture.md)
+          
+          ### Support
+          - [GitHub Issues](https://github.com/YOUR_USERNAME/marks3/issues)
+          - [Discussions](https://github.com/YOUR_USERNAME/marks3/discussions)
+          EOF
+          
+          echo "Generated release notes:"
+          cat release_notes.md
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ needs.validate-version.outputs.version }}
+          name: MarkS3 v${{ needs.validate-version.outputs.version }}
+          body_path: release_notes.md
+          draft: ${{ github.event.inputs.draft }}
+          prerelease: ${{ github.event.inputs.prerelease }}
+          files: |
+            marks3-v${{ needs.validate-version.outputs.version }}-*.tar.gz
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update latest release branch
+        if: ${{ !github.event.inputs.prerelease }}
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          # Create or update latest branch
+          git checkout -B latest
+          git push origin latest --force
+
+  notify-release:
+    name: Notify Release
+    runs-on: ubuntu-latest
+    needs: [validate-version, create-github-release]
+    if: always() && needs.create-github-release.result == 'success'
+    
+    steps:
+      - name: Notify Slack
+        uses: 8398a7/action-slack@v3
+        with:
+          status: success
+          channel: '#releases'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+          custom_payload: |
+            {
+              text: "🎉 MarkS3 v${{ needs.validate-version.outputs.version }} has been released!",
+              attachments: [{
+                color: 'good',
+                fields: [
+                  {
+                    title: 'Version',
+                    value: 'v${{ needs.validate-version.outputs.version }}',
+                    short: true
+                  },
+                  {
+                    title: 'Type',
+                    value: '${{ github.event.inputs.release_type }}',
+                    short: true
+                  },
+                  {
+                    title: 'Pre-release',
+                    value: '${{ github.event.inputs.prerelease }}',
+                    short: true
+                  },
+                  {
+                    title: 'Release Notes',
+                    value: 'https://github.com/YOUR_USERNAME/marks3/releases/tag/v${{ needs.validate-version.outputs.version }}',
+                    short: false
+                  }
+                ]
+              }]
+            }
+
+      - name: Notify Discord
+        if: vars.DISCORD_WEBHOOK_URL
+        uses: Ilshidur/action-discord@master
+        env:
+          DISCORD_WEBHOOK: ${{ vars.DISCORD_WEBHOOK_URL }}
+        with:
+          args: |
+            🚀 **MarkS3 v${{ needs.validate-version.outputs.version }}** has been released!
+            
+            **Type:** ${{ github.event.inputs.release_type }}
+            **Pre-release:** ${{ github.event.inputs.prerelease }}
+            
+            📖 [View Release Notes](https://github.com/YOUR_USERNAME/marks3/releases/tag/v${{ needs.validate-version.outputs.version }})
+            📥 [Download](https://github.com/YOUR_USERNAME/marks3/releases/latest)
+
+  cleanup:
+    name: Cleanup
+    runs-on: ubuntu-latest
+    needs: [validate-version, create-github-release]
+    if: always()
+    
+    steps:
+      - name: Delete release branch
+        if: needs.create-github-release.result == 'success'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const branchName = 'release/v${{ needs.validate-version.outputs.version }}';
+            
+            try {
+              await github.rest.git.deleteRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `heads/${branchName}`
+              });
+              console.log(`Deleted branch: ${branchName}`);
+            } catch (error) {
+              console.log(`Branch ${branchName} may not exist or already deleted`);
+            }
+
+      - name: Clean up artifacts
+        uses: geekyeggo/delete-artifact@v2
+        with:
+          name: release-artifacts-v${{ needs.validate-version.outputs.version }}
+          failOnError: false
