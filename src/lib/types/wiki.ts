@@ -85,6 +85,13 @@ export interface WikiConfig {
   features: {
     fileUpload: boolean;
     userManagement: boolean;
+    search: boolean;
+    pageHistory: boolean;
+  };
+  limits: {
+    maxFileSize: number;
+    maxPages: number;
+    maxFilesPerPage: number;
   };
 }
 

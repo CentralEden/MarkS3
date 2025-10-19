@@ -1,64 +1,74 @@
 <script lang="ts">
-	import { page } from '$app/stores';
-	import { authStore, isAuthenticated, isAdmin } from '$lib/stores/auth.js';
+	import { onMount } from 'svelte';
+	import Navigation from '$lib/components/common/Navigation.svelte';
+	import Footer from '$lib/components/common/Footer.svelte';
+	import AppInitializer from '$lib/components/common/AppInitializer.svelte';
+	import type { InitializationResult } from '$lib/services/appInitialization.js';
 
-	// Current route
-	$: currentRoute = $page.route.id;
+	// Application state
+	let appInitialized = false;
+	let initializationError: string | null = null;
+	let initResult: InitializationResult | null = null;
+
+	function handleInitialized(event: CustomEvent<InitializationResult>) {
+		initResult = event.detail;
+		appInitialized = true;
+		
+		// Log warnings if any
+		if (initResult.warnings && initResult.warnings.length > 0) {
+			console.warn('Application initialized with warnings:', initResult.warnings);
+		}
+	}
+
+	function handleInitializationError(event: CustomEvent<{ error: string }>) {
+		initializationError = event.detail.error;
+		console.error('Application initialization failed:', initializationError);
+	}
 </script>
 
-<div class="app-layout">
-	<!-- Navigation Header -->
-	<header class="app-header">
-		<nav class="main-nav">
-			<div class="nav-brand">
-				<a href="/" class="brand-link">
-					<span class="brand-icon">📚</span>
-					MarkS3 Wiki
-				</a>
-			</div>
-			
-			{#if $isAuthenticated}
-				<div class="nav-links">
-					<a 
-						href="/" 
-						class="nav-link"
-						class:active={currentRoute === '/'}
-					>
-						ホーム
+{#if !appInitialized && !initializationError}
+	<!-- Show initialization screen -->
+	<AppInitializer 
+		on:initialized={handleInitialized}
+		on:error={handleInitializationError}
+	/>
+{:else if initializationError}
+	<!-- Show error state -->
+	<div class="app-error">
+		<div class="error-container">
+			<h1>Application Error</h1>
+			<p>{initializationError}</p>
+			<button on:click={() => window.location.reload()}>
+				Reload Application
+			</button>
+		</div>
+	</div>
+{:else}
+	<!-- Show main application -->
+	<div class="app-layout">
+		<!-- Navigation Header -->
+		<header class="app-header">
+			<div class="main-nav">
+				<div class="nav-brand">
+					<a href="/" class="brand-link">
+						<span class="brand-icon">📚</span>
+						{initResult?.config?.title || 'MarkS3 Wiki'}
 					</a>
-					<a 
-						href="/browse" 
-						class="nav-link"
-						class:active={currentRoute === '/browse'}
-					>
-						ページ一覧
-					</a>
-					<a 
-						href="/edit" 
-						class="nav-link"
-						class:active={currentRoute === '/edit'}
-					>
-						編集
-					</a>
-					{#if $isAdmin}
-						<a 
-							href="/admin" 
-							class="nav-link admin-link"
-							class:active={currentRoute === '/admin'}
-						>
-							管理
-						</a>
-					{/if}
 				</div>
-			{/if}
-		</nav>
-	</header>
+				
+				<Navigation />
+			</div>
+		</header>
 
-	<!-- Main Content -->
-	<main class="app-main">
-		<slot />
-	</main>
-</div>
+		<!-- Main Content -->
+		<main class="app-main">
+			<slot />
+		</main>
+
+		<!-- Footer -->
+		<Footer />
+	</div>
+{/if}
 
 <style>
 	.app-layout {
@@ -101,43 +111,7 @@
 		font-size: 24px;
 	}
 
-	.nav-links {
-		display: flex;
-		gap: 24px;
-	}
 
-	.nav-link {
-		text-decoration: none;
-		color: var(--text-secondary, #718096);
-		font-weight: 500;
-		padding: 8px 12px;
-		border-radius: 6px;
-		transition: all 0.2s ease;
-	}
-
-	.nav-link:hover {
-		color: var(--text-primary, #2d3748);
-		background: var(--bg-hover, #f7fafc);
-	}
-
-	.nav-link.active {
-		color: var(--primary-color, #3182ce);
-		background: var(--primary-light, #ebf8ff);
-	}
-
-	.admin-link {
-		color: var(--warning-color, #d69e2e);
-	}
-
-	.admin-link:hover {
-		color: var(--warning-dark, #b7791f);
-		background: var(--warning-light, #faf5e6);
-	}
-
-	.admin-link.active {
-		color: var(--warning-dark, #b7791f);
-		background: var(--warning-light, #faf5e6);
-	}
 
 	.app-main {
 		flex: 1;
@@ -147,22 +121,60 @@
 		width: 100%;
 	}
 
+	.app-error {
+		min-height: 100vh;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: #f7fafc;
+		padding: 20px;
+	}
+
+	.error-container {
+		background: white;
+		border-radius: 12px;
+		padding: 40px;
+		box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+		text-align: center;
+		max-width: 500px;
+		width: 100%;
+	}
+
+	.error-container h1 {
+		margin: 0 0 16px 0;
+		font-size: 24px;
+		color: #e53e3e;
+	}
+
+	.error-container p {
+		margin: 0 0 24px 0;
+		color: #718096;
+		line-height: 1.6;
+	}
+
+	.error-container button {
+		padding: 12px 24px;
+		background: #3182ce;
+		color: white;
+		border: none;
+		border-radius: 8px;
+		font-size: 14px;
+		font-weight: 500;
+		cursor: pointer;
+		transition: background-color 0.2s;
+	}
+
+	.error-container button:hover {
+		background: #2c5aa0;
+	}
+
 	/* Responsive design */
 	@media (max-width: 768px) {
 		.main-nav {
 			flex-direction: column;
 			height: auto;
 			padding: 12px 0;
-			gap: 12px;
-		}
-
-		.nav-links {
 			gap: 16px;
-		}
-
-		.nav-link {
-			padding: 6px 10px;
-			font-size: 14px;
 		}
 
 		.brand-link {
