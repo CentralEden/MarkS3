@@ -130,3 +130,20 @@ logs
 build/
 dist/
 out/
+
+# SvelteKit specific
+.svelte-kit/
+package/
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+terraform.tfvars
+terraform.tfvars.json
+
+# MarkS3 specific
+config/local.json
+config/production.json
+.env.production
