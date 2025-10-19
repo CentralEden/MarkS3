@@ -1,6 +1,10 @@
 # 実装計画
 
-- [ ] 1. プロジェクト構造とコア設定の初期化
+- [x] 1. プロジェクト構造とコア設定の初期化
+
+
+
+
   - [x] 1.1 プロジェクト基盤の初期化
 
 
@@ -13,21 +17,35 @@
     - 初期プロジェクト構造の作成
     - _要件: 10.1, 10.2_
 
-  - [ ] 1.2 SvelteKitプロジェクトの構築
+  - [x] 1.2 SvelteKitプロジェクトの構築
+
+
+
+
+
     - SvelteKitプロジェクトの作成とTypeScript設定
     - AWS SDK、Milkdown、必要な依存関係のインストール
     - プロジェクト構造の作成（components、services、stores、types）
     - 基本的な型定義ファイルの作成
     - _要件: 1.1, 2.2, 4.1_
 
-- [ ] 2. 基本型定義とインターフェースの実装
-  - [ ] 2.1 コア型定義の作成
+- [x] 2. 基本型定義とインターフェースの実装
+
+
+
+
+
+  - [x] 2.1 コア型定義の作成
+
+
     - User、UserRole、WikiPage、PageMetadata型の定義
     - AuthResult、SaveResult、FileInfo型の定義
     - WikiConfig、PageNode型の定義
     - _要件: 2.2, 2.3, 3.1, 7.1_
 
-  - [ ] 2.2 サービスインターフェースの定義
+  - [x] 2.2 サービスインターフェースの定義
+
+
     - AuthService、S3Service、WikiService、FileServiceインターフェース
     - エラーハンドリング用のWikiErrorクラスとErrorCodes
     - _要件: 2.1, 4.2, 8.4, 8.5_

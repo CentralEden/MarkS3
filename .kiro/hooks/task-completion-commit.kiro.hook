@@ -1,0 +1,22 @@
+{
+  "enabled": true,
+  "name": "Task Completion Auto-Commit",
+  "description": "Automatically commits and pushes changes to git when a task is completed",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "src/**/*",
+      "terraform/**/*",
+      "docs/**/*",
+      "README.md",
+      "package.json",
+      "*.config.*",
+      "*.md"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A task has been completed and files have been modified. Please commit these changes with an appropriate commit message and push them to the remote repository. Make sure to stage all relevant changes and create a meaningful commit message that describes what was accomplished."
+  }
+}
