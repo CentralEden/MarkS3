@@ -66,15 +66,15 @@ module "cognito" {
   tags = var.tags
 }
 
-# CloudFront Module (only if domain is specified)
+# CloudFront Module (enabled by default for HTTPS)
 module "cloudfront" {
   source = "./modules/cloudfront"
-  count  = local.domain_name != null ? 1 : 0
+  count  = var.enable_cloudfront ? 1 : 0
   
   bucket_name               = local.bucket_name
   bucket_domain_name        = module.s3.bucket_domain_name
   bucket_regional_domain_name = module.s3.bucket_regional_domain_name
-  domain_name               = local.domain_name
+  domain_name               = var.domain_name
   create_hosted_zone        = var.create_hosted_zone
   hosted_zone_id            = var.hosted_zone_id
   resource_prefix           = local.resource_prefix

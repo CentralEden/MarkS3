@@ -47,7 +47,11 @@ export class CognitoUserManagementService implements UserManagementService {
   constructor() {
     this.config = getAWSConfig();
     this.cognitoClient = new CognitoIdentityProviderClient({
-      region: this.config.region
+      region: this.config.region,
+      requestHandler: {
+        requestTimeout: 30000,
+        httpsAgent: undefined
+      }
     });
   }
 

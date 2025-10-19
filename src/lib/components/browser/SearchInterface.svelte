@@ -254,8 +254,8 @@
         <div class="advanced-filters">
           <!-- Sort Options -->
           <div class="filter-group">
-            <label class="filter-label">並び順:</label>
-            <select bind:value={sortBy} class="sort-select">
+            <label class="filter-label" for="sort-select">並び順:</label>
+            <select bind:value={sortBy} class="sort-select" id="sort-select">
               <option value="relevance">関連度</option>
               <option value="date">更新日</option>
               <option value="title">タイトル</option>
@@ -265,8 +265,8 @@
           <!-- Tag Filters -->
           {#if allTags.length > 0}
             <div class="filter-group">
-              <label class="filter-label">タグ:</label>
-              <div class="tag-filters">
+              <span class="filter-label" id="tag-filter-label">タグ:</span>
+              <div class="tag-filters" role="group" aria-labelledby="tag-filter-label">
                 {#each allTags as tag}
                   <button
                     class="tag-filter"

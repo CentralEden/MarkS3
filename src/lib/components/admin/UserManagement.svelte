@@ -285,8 +285,8 @@
 
 <!-- Create User Modal -->
 {#if showCreateModal}
-  <div class="modal-overlay" on:click={closeModals}>
-    <div class="modal" on:click|stopPropagation>
+  <div class="modal-overlay" on:click={closeModals} on:keydown={(e) => e.key === 'Escape' && closeModals()} role="button" tabindex="0">
+    <div class="modal" on:click|stopPropagation role="dialog" aria-modal="true">
       <header class="modal-header">
         <h3>Create New User</h3>
         <button class="btn-close" on:click={closeModals}>×</button>
@@ -350,8 +350,8 @@
 
 <!-- Edit User Modal -->
 {#if showEditModal && selectedUser}
-  <div class="modal-overlay" on:click={closeModals}>
-    <div class="modal" on:click|stopPropagation>
+  <div class="modal-overlay" on:click={closeModals} on:keydown={(e) => e.key === 'Escape' && closeModals()} role="button" tabindex="0">
+    <div class="modal" on:click|stopPropagation role="dialog" aria-modal="true">
       <header class="modal-header">
         <h3>Edit User: {selectedUser.username}</h3>
         <button class="btn-close" on:click={closeModals}>×</button>
@@ -393,8 +393,8 @@
 
 <!-- Delete User Modal -->
 {#if showDeleteModal && selectedUser}
-  <div class="modal-overlay" on:click={closeModals}>
-    <div class="modal" on:click|stopPropagation>
+  <div class="modal-overlay" on:click={closeModals} on:keydown={(e) => e.key === 'Escape' && closeModals()} role="button" tabindex="0">
+    <div class="modal" on:click|stopPropagation role="dialog" aria-modal="true">
       <header class="modal-header">
         <h3>Delete User</h3>
         <button class="btn-close" on:click={closeModals}>×</button>

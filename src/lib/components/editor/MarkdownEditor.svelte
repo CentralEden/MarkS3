@@ -13,7 +13,7 @@
 
   // Props
   export let content = '';
-  export let placeholder = 'Start writing your markdown...';
+  export const placeholder = 'Start writing your markdown...';
   export let readonly = false;
   export let autofocus = false;
   export let debounceDelay = 300; // Debounce delay for change events in milliseconds

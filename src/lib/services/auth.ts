@@ -29,7 +29,11 @@ export class AuthService implements IAuthService {
   constructor() {
     this.config = getAWSConfig();
     this.cognitoClient = new CognitoIdentityProviderClient({
-      region: this.config.region
+      region: this.config.region,
+      requestHandler: {
+        requestTimeout: 30000,
+        httpsAgent: undefined
+      }
     });
     
     // Try to restore session from localStorage

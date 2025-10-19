@@ -17,7 +17,7 @@ output "distribution_domain_name" {
 
 output "certificate_arn" {
   description = "ARN of the SSL certificate"
-  value       = aws_acm_certificate.wiki_cert.arn
+  value       = var.domain_name != "" ? aws_acm_certificate.wiki_cert[0].arn : null
 }
 
 output "hosted_zone_id" {

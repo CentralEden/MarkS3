@@ -289,8 +289,8 @@
 
 {#if showDeleteConfirm}
   <!-- Delete confirmation modal -->
-  <div class="modal-overlay" on:click={() => showDeleteConfirm = false}>
-    <div class="modal" on:click|stopPropagation>
+  <div class="modal-overlay" on:click={() => showDeleteConfirm = false} on:keydown={(e) => e.key === 'Escape' && (showDeleteConfirm = false)} role="button" tabindex="0">
+    <div class="modal" on:click|stopPropagation role="dialog" aria-modal="true">
       <h3>Delete Selected Files</h3>
       <p>
         Are you sure you want to delete <strong>{selectedFiles.size}</strong> 

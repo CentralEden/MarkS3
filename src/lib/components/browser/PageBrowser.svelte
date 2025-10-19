@@ -8,6 +8,7 @@
   import { authStore, canRead } from '../../stores/auth.js';
   import type { PageNode, WikiPageMeta } from '../../types/index.js';
   import { WikiError } from '../../types/index.js';
+  import TreeNode from './TreeNode.svelte';
 
   // Props
   export let selectedPath: string | null = null;

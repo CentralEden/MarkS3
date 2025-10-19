@@ -42,6 +42,10 @@ export class S3Service implements IS3Service {
     // Initialize S3 client with Cognito credentials
     this.s3Client = new S3Client({
       region: this.config.region,
+      requestHandler: {
+        requestTimeout: 30000,
+        httpsAgent: undefined
+      },
       credentials: fromCognitoIdentityPool({
         clientConfig: { region: this.config.region },
         identityPoolId: this.config.cognitoIdentityPoolId

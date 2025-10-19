@@ -34,8 +34,9 @@ locals {
   )
 }
 
-# SSL Certificate (must be in us-east-1 for CloudFront)
+# SSL Certificate (only if custom domain is provided)
 resource "aws_acm_certificate" "wiki_cert" {
+  count             = var.domain_name != "" ? 1 : 0
   provider          = aws.us_east_1
   domain_name       = var.domain_name
   validation_method = "DNS"
@@ -56,8 +57,8 @@ resource "aws_acm_certificate" "wiki_cert" {
 
 # Certificate validation records
 resource "aws_route53_record" "cert_validation" {
-  for_each = local.hosted_zone_id != null ? {
-    for dvo in aws_acm_certificate.wiki_cert.domain_validation_options : dvo.domain_name => {
+  for_each = var.domain_name != "" && local.hosted_zone_id != null ? {
+    for dvo in aws_acm_certificate.wiki_cert[0].domain_validation_options : dvo.domain_name => {
       name   = dvo.resource_record_name
       record = dvo.resource_record_value
       type   = dvo.resource_record_type
@@ -74,8 +75,9 @@ resource "aws_route53_record" "cert_validation" {
 
 # Certificate validation
 resource "aws_acm_certificate_validation" "wiki_cert_validation" {
+  count                   = var.domain_name != "" ? 1 : 0
   provider                = aws.us_east_1
-  certificate_arn         = aws_acm_certificate.wiki_cert.arn
+  certificate_arn         = aws_acm_certificate.wiki_cert[0].arn
   validation_record_fqdns = local.hosted_zone_id != null ? [for record in aws_route53_record.cert_validation : record.fqdn] : null
 
   timeouts {
@@ -105,8 +107,8 @@ resource "aws_cloudfront_distribution" "wiki_distribution" {
   comment             = "MarkS3 Wiki Distribution"
   default_root_object = "index.html"
 
-  # Aliases (custom domain)
-  aliases = [var.domain_name]
+  # Aliases (custom domain, if provided)
+  aliases = var.domain_name != "" ? [var.domain_name] : []
 
   # Default cache behavior
   default_cache_behavior {
@@ -139,10 +141,10 @@ resource "aws_cloudfront_distribution" "wiki_distribution" {
 
     forwarded_values {
       query_string = true
-      headers      = ["*"]
+      headers      = ["Origin", "Access-Control-Request-Headers", "Access-Control-Request-Method", "Authorization"]
 
       cookies {
-        forward = "all"
+        forward = "none"
       }
     }
 
@@ -187,9 +189,10 @@ resource "aws_cloudfront_distribution" "wiki_distribution" {
 
   # SSL Certificate
   viewer_certificate {
-    acm_certificate_arn      = aws_acm_certificate_validation.wiki_cert_validation.certificate_arn
-    ssl_support_method       = "sni-only"
-    minimum_protocol_version = "TLSv1.2_2021"
+    acm_certificate_arn      = var.domain_name != "" ? aws_acm_certificate_validation.wiki_cert_validation[0].certificate_arn : null
+    ssl_support_method       = var.domain_name != "" ? "sni-only" : null
+    minimum_protocol_version = var.domain_name != "" ? "TLSv1.2_2021" : "TLSv1"
+    cloudfront_default_certificate = var.domain_name == "" ? true : false
   }
 
   # Custom error responses for SPA routing
@@ -211,9 +214,9 @@ resource "aws_cloudfront_distribution" "wiki_distribution" {
   })
 }
 
-# Route53 A record for the domain
+# Route53 A record for the domain (only if custom domain is provided)
 resource "aws_route53_record" "wiki_domain" {
-  count   = local.hosted_zone_id != null ? 1 : 0
+  count   = var.domain_name != "" && local.hosted_zone_id != null ? 1 : 0
   zone_id = local.hosted_zone_id
   name    = var.domain_name
   type    = "A"
@@ -225,9 +228,9 @@ resource "aws_route53_record" "wiki_domain" {
   }
 }
 
-# Route53 AAAA record for IPv6
+# Route53 AAAA record for IPv6 (only if custom domain is provided)
 resource "aws_route53_record" "wiki_domain_ipv6" {
-  count   = local.hosted_zone_id != null ? 1 : 0
+  count   = var.domain_name != "" && local.hosted_zone_id != null ? 1 : 0
   zone_id = local.hosted_zone_id
   name    = var.domain_name
   type    = "AAAA"

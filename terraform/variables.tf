@@ -57,6 +57,12 @@ variable "enable_guest_access" {
   default     = true
 }
 
+variable "enable_cloudfront" {
+  description = "Whether to enable CloudFront for HTTPS access"
+  type        = bool
+  default     = true
+}
+
 variable "tags" {
   description = "Tags to apply to all resources"
   type        = map(string)

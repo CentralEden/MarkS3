@@ -93,7 +93,7 @@ class MarkS3Deployer {
 
   validateDomainName(domainName) {
     if (!domainName) return true; // Optional
-    
+
     const domainRegex = /^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.([a-zA-Z]{2,})$/;
     if (!domainRegex.test(domainName)) {
       throw new DeploymentError(
@@ -106,7 +106,7 @@ class MarkS3Deployer {
   // Configuration methods
   async loadConfig() {
     const configPath = join(rootDir, 'deploy.config.json');
-    
+
     if (existsSync(configPath)) {
       try {
         const configData = readFileSync(configPath, 'utf8');
@@ -117,7 +117,7 @@ class MarkS3Deployer {
         this.warning('Failed to load existing configuration, will create new one');
       }
     }
-    
+
     return false;
   }
 
@@ -127,13 +127,13 @@ class MarkS3Deployer {
 
     // Project name
     const projectName = await this.question('Project name (default: marks3): ') || 'marks3';
-    
+
     // Environment
     const environment = await this.question('Environment (dev/staging/prod, default: prod): ') || 'prod';
-    
+
     // AWS Region
     const awsRegion = await this.question('AWS Region (default: us-east-1): ') || 'us-east-1';
-    
+
     // Bucket name
     let bucketName;
     while (!bucketName) {
@@ -165,7 +165,7 @@ class MarkS3Deployer {
       if (domainName) {
         const createHostedZone = await this.question('Create new Route53 hosted zone? (Y/n): ');
         const shouldCreateHostedZone = createHostedZone.toLowerCase() !== 'n' && createHostedZone.toLowerCase() !== 'no';
-        
+
         let hostedZoneId = '';
         if (!shouldCreateHostedZone) {
           hostedZoneId = await this.question('Existing Route53 hosted zone ID (optional): ') || '';
@@ -228,7 +228,7 @@ class MarkS3Deployer {
   async initTerraform() {
     this.info('Initializing Terraform...');
     try {
-      execSync('terraform init', { 
+      execSync('terraform init', {
         cwd: join(rootDir, 'terraform'),
         stdio: 'inherit'
       });
@@ -243,14 +243,15 @@ class MarkS3Deployer {
 
   async planTerraform() {
     this.info('Planning Terraform deployment...');
-    
+
     const tfVars = [
       `project_name="${this.config.projectName}"`,
       `environment="${this.config.environment}"`,
       `bucket_name="${this.config.bucketName}"`,
       `aws_region="${this.config.awsRegion}"`,
       `cognito_user_pool_name="${this.config.cognitoUserPoolName}"`,
-      `enable_guest_access=${this.config.enableGuestAccess}`
+      `enable_guest_access=${this.config.enableGuestAccess}`,
+      `enable_cloudfront=${this.config.enableCloudFront || true}`
     ];
 
     if (this.config.domainName) {
@@ -279,14 +280,15 @@ class MarkS3Deployer {
 
   async applyTerraform() {
     this.info('Applying Terraform configuration...');
-    
+
     const tfVars = [
       `project_name="${this.config.projectName}"`,
       `environment="${this.config.environment}"`,
       `bucket_name="${this.config.bucketName}"`,
       `aws_region="${this.config.awsRegion}"`,
       `cognito_user_pool_name="${this.config.cognitoUserPoolName}"`,
-      `enable_guest_access=${this.config.enableGuestAccess}`
+      `enable_guest_access=${this.config.enableGuestAccess}`,
+      `enable_cloudfront=${this.config.enableCloudFront || true}`
     ];
 
     if (this.config.domainName) {
@@ -339,7 +341,7 @@ class MarkS3Deployer {
   // Application build methods
   async generateAppConfig() {
     this.info('Generating application configuration...');
-    
+
     const appConfig = {
       aws: {
         region: this.config.awsRegion,
@@ -368,7 +370,7 @@ class MarkS3Deployer {
       `VITE_DOMAIN_NAME=${appConfig.app.domainName}`,
       `VITE_CLOUDFRONT_DOMAIN=${appConfig.app.cloudfrontDomain || ''}`,
       `VITE_ENABLE_GUEST_ACCESS=${appConfig.app.enableGuestAccess}`
-    ].join('\\n');
+    ].join('\n');
 
     writeFileSync(envPath, envContent);
     this.success('Application configuration generated');
@@ -396,7 +398,7 @@ class MarkS3Deployer {
   async uploadToS3() {
     this.info('Uploading application to S3...');
     const bucketName = this.terraformOutputs.bucket_name?.value;
-    
+
     try {
       execSync(`aws s3 sync build/ s3://${bucketName}/ --delete`, {
         cwd: rootDir,
@@ -435,7 +437,7 @@ class MarkS3Deployer {
       // Terraform deployment
       await this.initTerraform();
       await this.planTerraform();
-      
+
       const proceed = await this.question('\\nProceed with deployment? (Y/n): ');
       if (proceed.toLowerCase() === 'n' || proceed.toLowerCase() === 'no') {
         this.info('Deployment cancelled');
@@ -453,10 +455,10 @@ class MarkS3Deployer {
       // Success message
       this.log('\\n🎉 Deployment completed successfully!', 'green');
       this.log('=====================================\\n');
-      
+
       const domainName = this.config.domainName || this.terraformOutputs.website_endpoint?.value;
       this.log(`Your MarkS3 wiki is available at: ${colors.cyan}https://${domainName}${colors.reset}`);
-      
+
       if (this.config.createHostedZone && this.terraformOutputs.hosted_zone_name_servers?.value) {
         this.log('\\n📋 DNS Configuration Required:', 'yellow');
         this.log('Update your domain registrar with these name servers:');
@@ -501,7 +503,8 @@ class MarkS3Deployer {
         `bucket_name="${this.config.bucketName}"`,
         `aws_region="${this.config.awsRegion}"`,
         `cognito_user_pool_name="${this.config.cognitoUserPoolName}"`,
-        `enable_guest_access=${this.config.enableGuestAccess}`
+        `enable_guest_access=${this.config.enableGuestAccess}`,
+        `enable_cloudfront=${this.config.enableCloudFront || true}`
       ];
 
       if (this.config.domainName) {

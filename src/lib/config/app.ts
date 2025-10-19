@@ -25,7 +25,7 @@ export function getAWSConfig(): AWSConfig {
     bucketName: import.meta.env.VITE_S3_BUCKET_NAME || DEFAULT_CONFIG.bucketName,
     cognitoUserPoolId: import.meta.env.VITE_COGNITO_USER_POOL_ID || DEFAULT_CONFIG.cognitoUserPoolId,
     cognitoIdentityPoolId: import.meta.env.VITE_COGNITO_IDENTITY_POOL_ID || DEFAULT_CONFIG.cognitoIdentityPoolId,
-    cognitoClientId: import.meta.env.VITE_COGNITO_CLIENT_ID || DEFAULT_CONFIG.cognitoClientId
+    cognitoClientId: import.meta.env.VITE_COGNITO_USER_POOL_CLIENT_ID || DEFAULT_CONFIG.cognitoClientId
   };
 }
 

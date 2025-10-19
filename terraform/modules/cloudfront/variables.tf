@@ -16,8 +16,9 @@ variable "bucket_regional_domain_name" {
 }
 
 variable "domain_name" {
-  description = "Custom domain name"
+  description = "Custom domain name (optional)"
   type        = string
+  default     = ""
 }
 
 variable "create_hosted_zone" {
