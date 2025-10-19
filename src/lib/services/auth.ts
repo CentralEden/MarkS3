@@ -259,6 +259,15 @@ export class AuthService implements IAuthService {
   }
 
   /**
+   * Set guest access status (used by config service)
+   */
+  setGuestAccess(allowed: boolean): void {
+    // This will be called by the config service when guest access setting changes
+    // For now, we'll implement this as a simple property
+    // In a full implementation, this would integrate with the config service
+  }
+
+  /**
    * Get the current user's role
    */
   getCurrentUserRole(): UserRole | null {

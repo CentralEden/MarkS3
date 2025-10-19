@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import { authStore, isAuthenticated } from '$lib/stores/auth.js';
+	import { authStore, isAuthenticated, isAdmin } from '$lib/stores/auth.js';
 
 	// Current route
 	$: currentRoute = $page.route.id;
@@ -40,6 +40,15 @@
 					>
 						編集
 					</a>
+					{#if $isAdmin}
+						<a 
+							href="/admin" 
+							class="nav-link admin-link"
+							class:active={currentRoute === '/admin'}
+						>
+							管理
+						</a>
+					{/if}
 				</div>
 			{/if}
 		</nav>
@@ -114,6 +123,20 @@
 	.nav-link.active {
 		color: var(--primary-color, #3182ce);
 		background: var(--primary-light, #ebf8ff);
+	}
+
+	.admin-link {
+		color: var(--warning-color, #d69e2e);
+	}
+
+	.admin-link:hover {
+		color: var(--warning-dark, #b7791f);
+		background: var(--warning-light, #faf5e6);
+	}
+
+	.admin-link.active {
+		color: var(--warning-dark, #b7791f);
+		background: var(--warning-light, #faf5e6);
 	}
 
 	.app-main {
