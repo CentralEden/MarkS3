@@ -33,6 +33,22 @@ export interface WikiService {
   searchPages(query: string): Promise<WikiPageMeta[]>;
   getPageHierarchy(): Promise<import('./wiki.js').PageNode[]>;
   getPageAttachments(path: string): Promise<FileInfo[]>;
+  
+  // Enhanced search functionality
+  searchPagesInFolder(query: string, folderPath: string): Promise<WikiPageMeta[]>;
+  getPagesByTag(tag: string): Promise<WikiPageMeta[]>;
+  getAllTags(): Promise<string[]>;
+  
+  // Orphaned file management
+  findAllOrphanedFiles(): Promise<FileInfo[]>;
+  deleteOrphanedFiles(fileIds: string[]): Promise<void>;
+  getPagesReferencingFile(fileId: string): Promise<WikiPageMeta[]>;
+  validatePageDeletion(path: string): Promise<{
+    canDelete: boolean;
+    orphanedFiles: FileInfo[];
+    referencingPages: WikiPageMeta[];
+    warnings: string[];
+  }>;
 }
 
 export interface FileService {
