@@ -22,7 +22,7 @@
 - **TypeScript**: アプリケーション全体の型安全性
 
 ## 開発ツール
-- **npm/yarn**: パッケージ管理
+- **pnpm**: パッケージ管理（高速で効率的なディスク使用）
 - **ESLint + Prettier**: コードフォーマットとリンティング
 - **Vitest**: 単体テストと統合テスト
 
@@ -31,19 +31,19 @@
 ### 開発
 ```bash
 # 依存関係のインストール
-npm install
+pnpm install
 
 # 開発サーバーの起動
-npm run dev
+pnpm dev
 
 # 本番用ビルド
-npm run build
+pnpm build
 
 # テスト実行
-npm run test
+pnpm test
 
 # 型チェック
-npm run check
+pnpm check
 ```
 
 ### インフラストラクチャ

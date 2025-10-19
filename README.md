@@ -30,17 +30,41 @@ MarkS3 is a self-hosted markdown wiki application that runs entirely on AWS infr
 ### Prerequisites
 
 - AWS Account with appropriate permissions
-- Node.js 18+ and npm/yarn
+- Node.js 18+ and pnpm
 - Terraform 1.0+
 
 ### Installation
 
 1. Clone the repository
-2. Configure AWS credentials
-3. Run Terraform to create infrastructure
-4. Build and deploy the application
+2. Install dependencies: `pnpm install`
+3. Configure AWS credentials
+4. Run Terraform to create infrastructure
+5. Build and deploy the application
 
 Detailed setup instructions will be provided in the complete documentation.
+
+### Development Commands
+
+```bash
+# Install dependencies
+pnpm install
+
+# Start development server
+pnpm dev
+
+# Build for production
+pnpm build
+
+# Run tests
+pnpm test
+
+# Type checking
+pnpm check
+
+# Lint and format
+pnpm lint
+pnpm format
+```
 
 ## Project Structure
 
