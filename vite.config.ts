@@ -7,6 +7,8 @@ export default defineConfig({
 	test: {
 		include: ['src/**/*.{test,spec}.{js,ts}', 'tests/**/*.{test,spec}.{js,ts}']
 	},
+	// Configure base URL for S3 hosting - use relative paths
+	base: '',
 	define: {
 		global: 'globalThis',
 		'process.env': {},
@@ -145,18 +147,40 @@ export default defineConfig({
 						return 'vendor';
 					}
 				},
-				// Optimize chunk sizes
-				chunkFileNames: (chunkInfo) => {
-					return `assets/[name]-[hash].js`;
+				// Optimize chunk sizes and ensure relative paths for S3
+				chunkFileNames: `assets/[name]-[hash].js`,
+				entryFileNames: `assets/[name]-[hash].js`,
+				assetFileNames: `assets/[name]-[hash].[ext]`,
+				// Ensure proper format for static hosting
+				format: 'es',
+				// Generate relative imports for better S3 compatibility
+				generatedCode: {
+					constBindings: true
 				}
-			}
+			},
+			// Enhanced external configuration for static hosting
+			external: (id) => {
+				// Externalize Node.js specific modules that shouldn't be bundled
+				if (id.includes('@smithy/node-http-handler') || 
+					id.includes('@aws-sdk/node-http-handler') ||
+					id.includes('@smithy/hash-node') ||
+					id.includes('@aws-sdk/hash-node')) {
+					return true;
+				}
+				return false;
+			},
+			// Ensure proper import resolution for static files
+			preserveEntrySignatures: 'strict'
 		},
 		// Additional optimizations
 		assetsInlineLimit: 4096, // Inline small assets
 		chunkSizeWarningLimit: 1000, // Warn for chunks larger than 1MB
 		// Ensure proper asset handling for S3
 		assetsDir: 'assets',
-		emptyOutDir: true
+		emptyOutDir: true,
+		// Enhanced static hosting configuration
+		cssCodeSplit: true, // Split CSS for better caching
+		reportCompressedSize: false // Disable for faster builds
 	},
 	server: {
 		fs: {
