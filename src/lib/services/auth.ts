@@ -17,6 +17,7 @@ import { UserRole } from '../types/auth.js';
 import type { AWSConfig } from '../types/aws.js';
 import { WikiError, ErrorCodes } from '../types/errors.js';
 import { getAWSConfig } from '../config/app.js';
+import { executeWithRetry, AWSService, createUserFriendlyError } from '../utils/awsErrorHandler.js';
 
 export class AuthService implements IAuthService {
   private cognitoClient: CognitoIdentityProviderClient;
@@ -28,12 +29,26 @@ export class AuthService implements IAuthService {
 
   constructor() {
     this.config = getAWSConfig();
+    
+    // Initialize Cognito client with browser-compatible configuration
     this.cognitoClient = new CognitoIdentityProviderClient({
       region: this.config.region,
+      // Browser-specific configuration
       requestHandler: {
         requestTimeout: 30000,
+        // Remove Node.js specific httpsAgent
         httpsAgent: undefined
-      }
+      },
+      // Use browser-compatible credentials when available
+      credentials: typeof window !== 'undefined' ? fromCognitoIdentityPool({
+        clientConfig: { region: this.config.region },
+        identityPoolId: this.config.cognitoIdentityPoolId
+      }) : undefined,
+      // Ensure proper browser compatibility
+      runtime: 'browser',
+      // Add retry configuration for network resilience
+      maxAttempts: 3,
+      retryMode: 'adaptive'
     });
     
     // Try to restore session from localStorage
@@ -55,7 +70,10 @@ export class AuthService implements IAuthService {
       };
 
       const command = new InitiateAuthCommand(authParams);
-      const response = await this.cognitoClient.send(command);
+      const response = await executeWithRetry(
+        () => this.cognitoClient.send(command),
+        AWSService.COGNITO
+      );
 
       if (!response.AuthenticationResult) {
         throw new WikiError(
@@ -78,7 +96,7 @@ export class AuthService implements IAuthService {
       this.refreshTokenValue = RefreshToken;
       this.idToken = IdToken;
 
-      // Get user information
+      // Get user information with retry
       const user = await this.fetchUserInfo(AccessToken);
       this.currentUser = user;
 
@@ -101,9 +119,11 @@ export class AuthService implements IAuthService {
         };
       }
 
+      // Use centralized error handling for user-friendly messages
+      const friendlyError = createUserFriendlyError(error, AWSService.COGNITO);
       return {
         success: false,
-        error: 'Authentication failed. Please check your credentials.'
+        error: friendlyError.message
       };
     }
   }
@@ -117,11 +137,15 @@ export class AuthService implements IAuthService {
         const command = new GlobalSignOutCommand({
           AccessToken: this.accessToken
         });
-        await this.cognitoClient.send(command);
+        await executeWithRetry(
+          () => this.cognitoClient.send(command),
+          AWSService.COGNITO
+        );
       }
     } catch (error) {
       console.error('Logout error:', error);
       // Continue with local logout even if server logout fails
+      // This is acceptable as the tokens will expire anyway
     } finally {
       // Clear local session
       this.clearSession();
@@ -179,7 +203,10 @@ export class AuthService implements IAuthService {
         }
       });
 
-      const response = await this.cognitoClient.send(command);
+      const response = await executeWithRetry(
+        () => this.cognitoClient.send(command),
+        AWSService.COGNITO
+      );
 
       if (!response.AuthenticationResult?.AccessToken) {
         throw new WikiError(
@@ -195,7 +222,7 @@ export class AuthService implements IAuthService {
         this.idToken = response.AuthenticationResult.IdToken;
       }
 
-      // Update user info
+      // Update user info with retry
       if (this.accessToken) {
         this.currentUser = await this.fetchUserInfo(this.accessToken);
         this.persistSession();
@@ -208,7 +235,7 @@ export class AuthService implements IAuthService {
       this.clearSession();
       throw new WikiError(
         ErrorCodes.AUTH_FAILED,
-        'Failed to refresh authentication token'
+        'Failed to refresh authentication token. Please log in again.'
       );
     }
   }
@@ -294,7 +321,10 @@ export class AuthService implements IAuthService {
         AccessToken: accessToken
       });
 
-      const response = await this.cognitoClient.send(command);
+      const response = await executeWithRetry(
+        () => this.cognitoClient.send(command),
+        AWSService.COGNITO
+      );
 
       if (!response.Username) {
         throw new WikiError(
@@ -335,7 +365,7 @@ export class AuthService implements IAuthService {
       console.error('Error fetching user info:', error);
       throw new WikiError(
         ErrorCodes.AUTH_FAILED,
-        'Failed to retrieve user information'
+        'Failed to retrieve user information. Please try again.'
       );
     }
   }
@@ -390,6 +420,8 @@ export class AuthService implements IAuthService {
       localStorage.removeItem('marks3_session');
     }
   }
+
+
 }
 
 // Export singleton instance

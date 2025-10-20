@@ -26,6 +26,7 @@ import type {
 } from '../types/index.js';
 import { WikiError, ErrorCodes } from '../types/index.js';
 import { getAWSConfig, APP_CONFIG } from '../config/app.js';
+import { executeWithRetry, AWSService, createUserFriendlyError } from '../utils/awsErrorHandler.js';
 
 /**
  * S3 Service implementation
@@ -39,17 +40,34 @@ export class S3Service implements IS3Service {
     this.config = getAWSConfig();
     this.bucketName = this.config.bucketName;
     
-    // Initialize S3 client with Cognito credentials
+    // Initialize S3 client with browser-compatible configuration
     this.s3Client = new S3Client({
       region: this.config.region,
+      // Browser-specific request handler configuration
       requestHandler: {
         requestTimeout: 30000,
+        // Remove Node.js specific httpsAgent for browser compatibility
         httpsAgent: undefined
       },
+      // Use browser-compatible Cognito credentials
       credentials: fromCognitoIdentityPool({
-        clientConfig: { region: this.config.region },
+        clientConfig: { 
+          region: this.config.region,
+          // Ensure browser compatibility
+          runtime: 'browser'
+        },
         identityPoolId: this.config.cognitoIdentityPoolId
-      })
+      }),
+      // Browser-specific configuration
+      runtime: 'browser',
+      // Add retry configuration for network resilience
+      maxAttempts: 3,
+      retryMode: 'adaptive',
+      // CORS-compatible request signing
+      forcePathStyle: false, // Use virtual-hosted-style requests for better CORS support
+      // Ensure proper browser request handling
+      useAccelerateEndpoint: false,
+      useDualstackEndpoint: false
     });
   }
 
@@ -58,19 +76,19 @@ export class S3Service implements IS3Service {
    */
   async checkBucketAccess(): Promise<{ accessible: boolean; error?: WikiError }> {
     try {
-      // Try to list objects in the bucket to verify access
+      // Try to list objects in the bucket to verify access with retry logic
       const command = new ListObjectsV2Command({
         Bucket: this.bucketName,
         MaxKeys: 1
       });
       
-      await this.s3Client.send(command);
+      await executeWithRetry(() => this.s3Client.send(command), AWSService.S3);
       return { accessible: true };
     } catch (error: any) {
       console.error('Bucket access check failed:', error);
       return { 
         accessible: false, 
-        error: this.handleS3Error(error)
+        error: error instanceof WikiError ? error : createUserFriendlyError(error, AWSService.S3)
       };
     }
   }
@@ -103,7 +121,7 @@ export class S3Service implements IS3Service {
 
       console.log('Wiki initialization completed');
     } catch (error: any) {
-      throw this.handleS3Error(error);
+      throw createUserFriendlyError(error, AWSService.S3);
     }
   }
 
@@ -111,7 +129,7 @@ export class S3Service implements IS3Service {
    * Get a wiki page from S3 with retry logic
    */
   async getPage(path: string): Promise<WikiPage> {
-    return this.executeWithRetry(async () => {
+    return executeWithRetry(async () => {
       const key = APP_CONFIG.s3Paths.pages + path;
       const command = new GetObjectCommand({
         Bucket: this.bucketName,
@@ -137,7 +155,7 @@ export class S3Service implements IS3Service {
         metadata,
         etag: response.ETag?.replace(/"/g, '') // Remove quotes from ETag
       };
-    });
+    }, AWSService.S3);
   }
 
   /**
@@ -222,7 +240,7 @@ export class S3Service implements IS3Service {
    * Delete a wiki page from S3 with retry logic
    */
   async deletePage(path: string): Promise<void> {
-    return this.executeWithRetry(async () => {
+    return executeWithRetry(async () => {
       const key = APP_CONFIG.s3Paths.pages + path;
       const command = new DeleteObjectCommand({
         Bucket: this.bucketName,
@@ -230,14 +248,14 @@ export class S3Service implements IS3Service {
       });
 
       await this.s3Client.send(command);
-    });
+    }, AWSService.S3);
   }
 
   /**
    * List wiki pages with optional prefix filter and retry logic
    */
   async listPages(prefix?: string): Promise<WikiPageMeta[]> {
-    return this.executeWithRetry(async () => {
+    return executeWithRetry(async () => {
       const key = APP_CONFIG.s3Paths.pages + (prefix || '');
       const command = new ListObjectsV2Command({
         Bucket: this.bucketName,
@@ -286,7 +304,7 @@ export class S3Service implements IS3Service {
       }
 
       return pages;
-    });
+    }, AWSService.S3);
   }
 
   /**
@@ -301,7 +319,7 @@ export class S3Service implements IS3Service {
       );
     }
 
-    return this.executeWithRetry(async () => {
+    return executeWithRetry(async () => {
       const key = APP_CONFIG.s3Paths.files + path;
       
       const command = new PutObjectCommand({
@@ -319,14 +337,14 @@ export class S3Service implements IS3Service {
 
       await this.s3Client.send(command);
       return key;
-    });
+    }, AWSService.S3);
   }
 
   /**
    * Delete a file from S3 with retry logic
    */
   async deleteFile(path: string): Promise<void> {
-    return this.executeWithRetry(async () => {
+    return executeWithRetry(async () => {
       const key = APP_CONFIG.s3Paths.files + path;
       const command = new DeleteObjectCommand({
         Bucket: this.bucketName,
@@ -334,14 +352,14 @@ export class S3Service implements IS3Service {
       });
 
       await this.s3Client.send(command);
-    });
+    }, AWSService.S3);
   }
 
   /**
    * List all uploaded files
    */
   async listFiles(): Promise<FileInfo[]> {
-    try {
+    return executeWithRetry(async () => {
       const command = new ListObjectsV2Command({
         Bucket: this.bucketName,
         Prefix: APP_CONFIG.s3Paths.files
@@ -355,13 +373,13 @@ export class S3Service implements IS3Service {
           if (object.Key) {
             const path = object.Key.replace(APP_CONFIG.s3Paths.files, '');
             
-            // Get file metadata
+            // Get file metadata with individual retry
             try {
               const headCommand = new HeadObjectCommand({
                 Bucket: this.bucketName,
                 Key: object.Key
               });
-              const headResponse = await this.s3Client.send(headCommand);
+              const headResponse = await this.executeWithRetry(() => this.s3Client.send(headCommand));
               const metadata = headResponse.Metadata || {};
 
               files.push({
@@ -374,6 +392,7 @@ export class S3Service implements IS3Service {
               });
             } catch (error) {
               // If we can't get metadata, create basic entry
+              console.warn(`Failed to get metadata for file ${path}:`, error);
               files.push({
                 id: path,
                 filename: path,
@@ -388,19 +407,34 @@ export class S3Service implements IS3Service {
       }
 
       return files;
-    } catch (error: any) {
-      throw this.handleS3Error(error);
-    }
+    }, AWSService.S3);
   }
 
   /**
-   * Get a signed URL for file access
+   * Get a URL for file access with proper CORS handling
    */
   async getFileUrl(path: string): Promise<string> {
-    // For now, return a simple S3 URL
-    // In production, this should use signed URLs for security
-    const key = APP_CONFIG.s3Paths.files + path;
-    return `https://${this.bucketName}.s3.${this.config.region}.amazonaws.com/${key}`;
+    try {
+      const key = APP_CONFIG.s3Paths.files + path;
+      
+      // Use virtual-hosted-style URLs for better CORS compatibility
+      // This format works better with browser CORS policies
+      const url = `https://${this.bucketName}.s3.${this.config.region}.amazonaws.com/${encodeURIComponent(key)}`;
+      
+      // In a production environment, you might want to use signed URLs for security:
+      // const getObjectCommand = new GetObjectCommand({
+      //   Bucket: this.bucketName,
+      //   Key: key
+      // });
+      // return await getSignedUrl(this.s3Client, getObjectCommand, { expiresIn: 3600 });
+      
+      return url;
+    } catch (error: any) {
+      console.error('Error generating file URL:', error);
+      // Fallback to basic URL construction
+      const key = APP_CONFIG.s3Paths.files + path;
+      return `https://${this.bucketName}.s3.${this.config.region}.amazonaws.com/${encodeURIComponent(key)}`;
+    }
   }
 
   /**
@@ -459,7 +493,7 @@ export class S3Service implements IS3Service {
         Key: key
       });
 
-      const response = await this.s3Client.send(command);
+      const response = await executeWithRetry(() => this.s3Client.send(command), AWSService.S3);
       
       if (!response.Body) {
         return APP_CONFIG.defaultWikiConfig;
@@ -480,7 +514,7 @@ export class S3Service implements IS3Service {
    * Save wiki configuration
    */
   async saveConfig(config: WikiConfig): Promise<void> {
-    try {
+    return executeWithRetry(async () => {
       const key = APP_CONFIG.s3Paths.config + 'wiki.json';
       const command = new PutObjectCommand({
         Bucket: this.bucketName,
@@ -490,9 +524,7 @@ export class S3Service implements IS3Service {
       });
 
       await this.s3Client.send(command);
-    } catch (error: any) {
-      throw this.handleS3Error(error);
-    }
+    }, AWSService.S3);
   }
 
   /**
@@ -669,9 +701,10 @@ export class S3Service implements IS3Service {
           break;
         }
         
-        // Calculate delay with exponential backoff
-        const delay = baseDelay * Math.pow(2, attempt);
-        console.warn(`S3 operation failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${delay}ms:`, error.message);
+        // Calculate delay with exponential backoff and jitter for better distribution
+        const jitter = Math.random() * 1000; // Add up to 1 second of jitter
+        const delay = baseDelay * Math.pow(2, attempt) + jitter;
+        console.warn(`S3 operation failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${Math.round(delay)}ms:`, error.message);
         
         await new Promise(resolve => setTimeout(resolve, delay));
       }
@@ -693,8 +726,29 @@ export class S3Service implements IS3Service {
       'InvalidRequest',
       'MalformedPolicy',
       'InvalidAccessKeyId',
-      'SignatureDoesNotMatch'
+      'SignatureDoesNotMatch',
+      'EntityTooLarge',
+      'InvalidBucketName',
+      'BucketAlreadyExists',
+      'BucketNotEmpty',
+      'InvalidStorageClass',
+      'InvalidArgument',
+      'MalformedXML',
+      'RequestTimeTooSkewed',
+      // Browser-specific CORS errors
+      'CORSError',
+      'NetworkError', // Some network errors shouldn't be retried
+      'AbortError' // User cancelled request
     ];
+    
+    // Also check for CORS-related errors in the message
+    if (error.message && (
+      error.message.includes('CORS') ||
+      error.message.includes('Cross-Origin') ||
+      error.message.includes('blocked by CORS policy')
+    )) {
+      return true;
+    }
     
     return nonRetryableErrors.includes(error.name) || nonRetryableErrors.includes(error.code);
   }
@@ -759,10 +813,30 @@ export class S3Service implements IS3Service {
     
     // Network and connectivity errors
     if (error.name === 'NetworkingError' || error.code === 'NetworkingError' || 
-        error.name === 'TimeoutError' || error.code === 'TimeoutError') {
+        error.name === 'TimeoutError' || error.code === 'TimeoutError' ||
+        error.name === 'NetworkError' || error.code === 'NetworkError') {
       return new WikiError(
         'NETWORK_ERROR' as ErrorCodes,
         'Network error occurred while accessing S3. Please check your internet connection and try again.',
+        error
+      );
+    }
+    
+    // Browser-specific CORS errors
+    if (error.name === 'CORSError' || error.code === 'CORSError' ||
+        (error.message && (error.message.includes('CORS') || error.message.includes('Cross-Origin')))) {
+      return new WikiError(
+        'NETWORK_ERROR' as ErrorCodes,
+        'Cross-origin request blocked. Please ensure your S3 bucket has proper CORS configuration for your domain.',
+        error
+      );
+    }
+    
+    // Fetch API errors (browser-specific)
+    if (error.name === 'TypeError' && error.message && error.message.includes('fetch')) {
+      return new WikiError(
+        'NETWORK_ERROR' as ErrorCodes,
+        'Network request failed. Please check your internet connection and try again.',
         error
       );
     }
