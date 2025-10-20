@@ -19,6 +19,6 @@
   },
   "then": {
     "type": "askAgent",
-    "prompt": "A document has been updated. Please review the changes and update the other related documents (requirements, design, and tasks) to ensure they remain consistent and synchronized with each other. Make sure all three documents reflect the same project state and any changes are propagated appropriately."
+    "prompt": "A document has been updated. Please review the changes and update the other related documents (requirements, design, and tasks) to ensure they remain consistent and synchronized with each other. Make sure all three documents reflect the same project state and any changes are propagated appropriately. It is written in japanese."
   }
 }
