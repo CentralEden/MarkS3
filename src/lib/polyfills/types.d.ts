@@ -35,6 +35,16 @@ declare module 'querystring-es3' {
   export = querystring;
 }
 
+declare module 'assert' {
+  const assert: any;
+  export = assert;
+}
+
+declare module 'vm-browserify' {
+  const vm: any;
+  export = vm;
+}
+
 // Extend global process type for browser compatibility
 declare global {
   namespace NodeJS {
@@ -58,4 +68,6 @@ declare global {
   var global: any;
   var setImmediate: (fn: (...args: any[]) => void, ...args: any[]) => any;
   var clearImmediate: (id: any) => void;
+  var assert: any;
+  var vm: any;
 }

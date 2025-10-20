@@ -16,6 +16,8 @@ import 'path-browserify';
 import 'os-browserify/browser';
 import 'url';
 import 'querystring-es3';
+import 'assert';
+import 'vm-browserify';
 
 // Ensure crypto polyfill is available globally
 import crypto from 'crypto-browserify';
@@ -78,7 +80,19 @@ if (typeof globalThis !== 'undefined') {
   (globalThis as any).querystring = querystring;
 }
 
-console.log('✅ Polyfills initialized successfully');
+// Assert polyfill
+import assert from 'assert';
+if (typeof globalThis !== 'undefined') {
+  (globalThis as any).assert = assert;
+}
+
+// VM polyfill (minimal implementation for compatibility)
+import vm from 'vm-browserify';
+if (typeof globalThis !== 'undefined') {
+  (globalThis as any).vm = vm;
+}
+
+console.log('✅ Comprehensive polyfills initialized successfully');
 
 export {
   crypto,
@@ -92,5 +106,7 @@ export {
   Readable,
   Writable,
   Transform,
-  PassThrough
+  PassThrough,
+  assert,
+  vm
 };

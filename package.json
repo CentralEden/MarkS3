@@ -30,6 +30,7 @@
     "@sveltejs/vite-plugin-svelte": "^3.0.0",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
+    "assert": "^2.1.0",
     "buffer": "^6.0.3",
     "chalk": "^5.3.0",
     "crypto-browserify": "^3.12.1",
@@ -54,7 +55,8 @@
     "url": "^0.11.4",
     "util": "^0.12.5",
     "vite": "^5.0.3",
-    "vitest": "^1.2.0"
+    "vitest": "^1.2.0",
+    "vm-browserify": "^1.1.2"
   },
   "dependencies": {
     "@aws-sdk/client-cognito-identity": "^3.910.0",

@@ -27,6 +27,7 @@ export default defineConfig({
 			stream: 'readable-stream',
 			'node:stream': 'readable-stream',
 			'stream/web': 'readable-stream',
+			'stream/promises': 'readable-stream',
 			crypto: 'crypto-browserify',
 			'node:crypto': 'crypto-browserify',
 			buffer: 'buffer',
@@ -39,7 +40,7 @@ export default defineConfig({
 			'node:util': 'util',
 			events: 'events',
 			'node:events': 'events',
-			// Additional polyfills for AWS SDK
+			// Additional comprehensive polyfills for AWS SDK
 			path: 'path-browserify',
 			'node:path': 'path-browserify',
 			os: 'os-browserify/browser',
@@ -48,6 +49,10 @@ export default defineConfig({
 			'node:url': 'url',
 			querystring: 'querystring-es3',
 			'node:querystring': 'querystring-es3',
+			assert: 'assert',
+			'node:assert': 'assert',
+			vm: 'vm-browserify',
+			'node:vm': 'vm-browserify',
 			// Exclude Node.js specific modules by providing empty modules
 			fs: resolve('./src/lib/polyfills/fs'),
 			'node:fs': resolve('./src/lib/polyfills/fs'),
@@ -60,8 +65,6 @@ export default defineConfig({
 			'node:http2': resolve('./src/lib/polyfills/empty.js'),
 			zlib: resolve('./src/lib/polyfills/empty.js'),
 			'node:zlib': resolve('./src/lib/polyfills/empty.js'),
-			vm: resolve('./src/lib/polyfills/empty.js'),
-			'node:vm': resolve('./src/lib/polyfills/empty.js'),
 			async_hooks: resolve('./src/lib/polyfills/empty.js'),
 			'node:async_hooks': resolve('./src/lib/polyfills/empty.js'),
 			child_process: resolve('./src/lib/polyfills/child_process.js'),
@@ -76,7 +79,7 @@ export default defineConfig({
 			'@aws-sdk/client-cognito-identity-provider',
 			'@aws-sdk/credential-providers',
 			'@aws-sdk/types',
-			// Essential polyfills
+			// Essential polyfills for Node.js APIs
 			'buffer',
 			'process/browser',
 			'readable-stream',
@@ -86,7 +89,9 @@ export default defineConfig({
 			'path-browserify',
 			'os-browserify/browser',
 			'url',
-			'querystring-es3'
+			'querystring-es3',
+			'assert',
+			'vm-browserify'
 		],
 		exclude: [
 			// Exclude Node.js specific AWS SDK modules
@@ -145,7 +150,13 @@ export default defineConfig({
 						id.includes('readable-stream') ||
 						id.includes('process/browser') ||
 						id.includes('path-browserify') ||
-						id.includes('os-browserify')) {
+						id.includes('os-browserify') ||
+						id.includes('assert') ||
+						id.includes('vm-browserify') ||
+						id.includes('querystring-es3') ||
+						id.includes('util') ||
+						id.includes('events') ||
+						id.includes('url')) {
 						return 'polyfills';
 					}
 					// Other vendor libraries

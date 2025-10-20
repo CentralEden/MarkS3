@@ -64,6 +64,35 @@ if (typeof globalThis !== 'undefined') {
   if (!globalThis.clearImmediate) {
     globalThis.clearImmediate = (id) => clearTimeout(id);
   }
+  
+  // Ensure __dirname and __filename are available for compatibility
+  if (!globalThis.__dirname) {
+    globalThis.__dirname = '/';
+  }
+  
+  if (!globalThis.__filename) {
+    globalThis.__filename = '/index.js';
+  }
+  
+  // Add module polyfill for compatibility
+  if (!globalThis.module) {
+    globalThis.module = {
+      exports: {},
+      require: () => {},
+      id: '.',
+      filename: '/index.js',
+      loaded: false,
+      parent: null,
+      children: []
+    };
+  }
+  
+  // Add require polyfill (minimal implementation)
+  if (!globalThis.require) {
+    globalThis.require = (id) => {
+      throw new Error(`Cannot require '${id}' in browser environment`);
+    };
+  }
 }
 
 // Export for module compatibility
