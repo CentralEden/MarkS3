@@ -1,4 +1,7 @@
 <script lang="ts">
+	// Import polyfills first before any other modules
+	import '$lib/polyfills/init';
+	
 	import { onMount } from 'svelte';
 	import Navigation from '$lib/components/common/Navigation.svelte';
 	import Footer from '$lib/components/common/Footer.svelte';

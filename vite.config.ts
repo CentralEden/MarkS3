@@ -15,7 +15,11 @@ export default defineConfig({
 		// Define process for AWS SDK compatibility
 		'process.version': JSON.stringify('v18.0.0'),
 		'process.platform': JSON.stringify('browser'),
-		'process.browser': true
+		'process.browser': true,
+		// Additional Node.js compatibility defines
+		'process.cwd': JSON.stringify('/'),
+		'__dirname': JSON.stringify('/'),
+		'__filename': JSON.stringify('/')
 	},
 	resolve: {
 		alias: {
@@ -27,8 +31,10 @@ export default defineConfig({
 			'node:crypto': 'crypto-browserify',
 			buffer: 'buffer',
 			'node:buffer': 'buffer',
-			process: 'process/browser',
-			'node:process': 'process/browser',
+			process: 'process',
+			'node:process': 'process',
+			'process/browser': 'process',
+			'process/browser/': 'process',
 			util: 'util',
 			'node:util': 'util',
 			events: 'events',
