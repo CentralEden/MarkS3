@@ -1,9 +1,27 @@
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vitest/config';
 import { resolve } from 'path';
+import { visualizer } from 'rollup-plugin-visualizer';
+import { analyzer } from 'vite-bundle-analyzer';
 
 export default defineConfig({
-	plugins: [sveltekit()],
+	plugins: [
+		sveltekit(),
+		// Bundle analyzer for development
+		process.env.ANALYZE && analyzer({
+			analyzerMode: 'server',
+			analyzerPort: 8888,
+			openAnalyzer: true,
+		}),
+		// Bundle visualizer for production builds
+		process.env.NODE_ENV === 'production' && visualizer({
+			filename: 'dist/bundle-analysis.html',
+			open: false,
+			gzipSize: true,
+			brotliSize: true,
+			template: 'treemap', // 'treemap', 'sunburst', 'network'
+		}),
+	].filter(Boolean),
 	test: {
 		include: ['src/**/*.{test,spec}.{js,ts}', 'tests/**/*.{test,spec}.{js,ts}']
 	},
@@ -117,7 +135,7 @@ export default defineConfig({
 		// Enhanced chunk splitting and optimization
 		rollupOptions: {
 			output: {
-				// Optimized manual chunking strategy
+				// Enhanced manual chunking strategy for optimal code splitting
 				manualChunks: (id) => {
 					// Skip Node.js specific modules entirely
 					if (id.includes('@smithy/node-http-handler') || 
@@ -127,12 +145,15 @@ export default defineConfig({
 						return undefined;
 					}
 					
-					// AWS SDK gets its own chunk for better caching
+					// AWS SDK - Split into logical chunks for better caching
 					if (id.includes('@aws-sdk/client-s3')) {
 						return 'aws-s3';
 					}
-					if (id.includes('@aws-sdk/client-cognito')) {
-						return 'aws-cognito';
+					if (id.includes('@aws-sdk/client-cognito-identity-provider')) {
+						return 'aws-cognito-idp';
+					}
+					if (id.includes('@aws-sdk/client-cognito-identity')) {
+						return 'aws-cognito-identity';
 					}
 					if (id.includes('@aws-sdk/credential-providers')) {
 						return 'aws-credentials';
@@ -140,11 +161,18 @@ export default defineConfig({
 					if (id.includes('@aws-sdk')) {
 						return 'aws-sdk-core';
 					}
-					// Milkdown editor in separate chunk
+					
+					// Milkdown editor - Heavy component, separate chunk
 					if (id.includes('@milkdown')) {
 						return 'milkdown';
 					}
-					// Polyfills in separate chunk
+					
+					// DOMPurify - Security library, separate chunk
+					if (id.includes('dompurify')) {
+						return 'security';
+					}
+					
+					// Polyfills - Group all browser compatibility code
 					if (id.includes('crypto-browserify') || 
 						id.includes('buffer') || 
 						id.includes('readable-stream') ||
@@ -159,7 +187,35 @@ export default defineConfig({
 						id.includes('url')) {
 						return 'polyfills';
 					}
-					// Other vendor libraries
+					
+					// Component-based chunking for better lazy loading
+					if (id.includes('src/lib/components/admin')) {
+						return 'admin-components';
+					}
+					if (id.includes('src/lib/components/editor')) {
+						return 'editor-components';
+					}
+					if (id.includes('src/lib/components/files')) {
+						return 'file-components';
+					}
+					if (id.includes('src/lib/components/browser')) {
+						return 'browser-components';
+					}
+					
+					// Service-based chunking
+					if (id.includes('src/lib/services/userManagement') || 
+						id.includes('src/lib/services/configManagement')) {
+						return 'admin-services';
+					}
+					if (id.includes('src/lib/services/files')) {
+						return 'file-services';
+					}
+					if (id.includes('src/lib/services/auth') || 
+						id.includes('src/lib/services/s3')) {
+						return 'core-services';
+					}
+					
+					// Other vendor libraries - keep smaller chunks
 					if (id.includes('node_modules')) {
 						return 'vendor';
 					}
@@ -189,15 +245,21 @@ export default defineConfig({
 			// Ensure proper import resolution for static files
 			preserveEntrySignatures: 'strict'
 		},
-		// Additional optimizations
+		// Additional optimizations for performance
 		assetsInlineLimit: 4096, // Inline small assets
-		chunkSizeWarningLimit: 1000, // Warn for chunks larger than 1MB
+		chunkSizeWarningLimit: 500, // Warn for chunks larger than 500KB (more aggressive)
 		// Ensure proper asset handling for S3
 		assetsDir: 'assets',
 		emptyOutDir: true,
 		// Enhanced static hosting configuration
 		cssCodeSplit: true, // Split CSS for better caching
-		reportCompressedSize: false // Disable for faster builds
+		reportCompressedSize: false, // Disable for faster builds
+		// Optimize for better code splitting
+		modulePreload: {
+			polyfill: true, // Enable module preload polyfill
+		},
+		// Enhanced asset optimization
+		assetsInclude: ['**/*.md'], // Include markdown files as assets
 	},
 	server: {
 		fs: {

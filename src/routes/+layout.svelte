@@ -6,6 +6,7 @@
 	import Navigation from '$lib/components/common/Navigation.svelte';
 	import Footer from '$lib/components/common/Footer.svelte';
 	import AppInitializer from '$lib/components/common/AppInitializer.svelte';
+	import { initializePreloading } from '$lib/config/lazyRoutes';
 	import type { InitializationResult } from '$lib/services/appInitialization.js';
 
 	// Application state
@@ -21,6 +22,9 @@
 		if (initResult.warnings && initResult.warnings.length > 0) {
 			console.warn('Application initialized with warnings:', initResult.warnings);
 		}
+		
+		// Initialize preloading strategies after app is ready
+		initializePreloading();
 	}
 
 	function handleInitializationError(event: CustomEvent<{ error: string }>) {
