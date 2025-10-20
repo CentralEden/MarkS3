@@ -63,6 +63,9 @@ class MonitoringService {
   }
 
   private initializeMonitoring(): void {
+    // Only initialize in browser environment
+    if (typeof window === 'undefined') return;
+    
     // Global error handler
     window.addEventListener('error', (event) => {
       this.trackError({
@@ -203,7 +206,7 @@ class MonitoringService {
   }
 
   public trackError(error: Partial<ErrorEvent>): void {
-    if (!this.isEnabled) return;
+    if (!this.isEnabled || typeof window === 'undefined') return;
 
     const errorEvent: ErrorEvent = {
       message: error.message || 'Unknown error',
@@ -281,7 +284,7 @@ class MonitoringService {
   }
 
   private async flushData(): void {
-    if (!this.isEnabled) return;
+    if (!this.isEnabled || typeof window === 'undefined') return;
 
     const hasData = this.errorQueue.length > 0 || 
                    this.metricsQueue.length > 0 || 
@@ -297,8 +300,8 @@ class MonitoringService {
         sessionId: this.sessionId,
         userId: this.userId,
         timestamp: Date.now(),
-        url: window.location.href,
-        userAgent: navigator.userAgent
+        url: typeof window !== 'undefined' ? window.location.href : '',
+        userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : ''
       };
 
       // Clear queues immediately to prevent duplicate sends
@@ -350,6 +353,7 @@ class MonitoringService {
   }
 
   public getStoredData(): any[] {
+    if (typeof window === 'undefined') return [];
     try {
       return JSON.parse(localStorage.getItem('marks3_monitoring_data') || '[]');
     } catch {
@@ -358,6 +362,7 @@ class MonitoringService {
   }
 
   public clearStoredData(): void {
+    if (typeof window === 'undefined') return;
     localStorage.removeItem('marks3_monitoring_data');
   }
 

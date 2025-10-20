@@ -86,7 +86,19 @@ export default defineConfig({
 			async_hooks: resolve('./src/lib/polyfills/empty.js'),
 			'node:async_hooks': resolve('./src/lib/polyfills/empty.js'),
 			child_process: resolve('./src/lib/polyfills/child_process.js'),
-			'node:child_process': resolve('./src/lib/polyfills/child_process.js')
+			'node:child_process': resolve('./src/lib/polyfills/child_process.js'),
+			// Redirect Node.js specific AWS SDK modules to empty modules
+			'@aws-sdk/node-http-handler': resolve('./src/lib/polyfills/empty.js'),
+			'@smithy/node-http-handler': resolve('./src/lib/polyfills/empty.js'),
+			'@aws-sdk/hash-node': resolve('./src/lib/polyfills/empty.js'),
+			'@smithy/hash-node': resolve('./src/lib/polyfills/empty.js'),
+			'@aws-sdk/credential-provider-node': resolve('./src/lib/polyfills/empty.js'),
+			'@aws-sdk/credential-provider-ini': resolve('./src/lib/polyfills/empty.js'),
+			'@aws-sdk/credential-provider-process': resolve('./src/lib/polyfills/empty.js'),
+			'@aws-sdk/credential-provider-sso': resolve('./src/lib/polyfills/empty.js'),
+			'@aws-sdk/credential-provider-ec2': resolve('./src/lib/polyfills/empty.js'),
+			'@aws-sdk/credential-provider-ecs': resolve('./src/lib/polyfills/empty.js'),
+			'@aws-sdk/credential-provider-env': resolve('./src/lib/polyfills/empty.js')
 		}
 	},
 	optimizeDeps: {
@@ -234,13 +246,21 @@ export default defineConfig({
 			// Enhanced external configuration for static hosting
 			external: (id) => {
 				// Externalize Node.js specific modules that shouldn't be bundled
-				if (id.includes('@smithy/node-http-handler') || 
-					id.includes('@aws-sdk/node-http-handler') ||
-					id.includes('@smithy/hash-node') ||
-					id.includes('@aws-sdk/hash-node')) {
-					return true;
-				}
-				return false;
+				const nodeSpecificModules = [
+					'@smithy/node-http-handler',
+					'@aws-sdk/node-http-handler',
+					'@smithy/hash-node',
+					'@aws-sdk/hash-node',
+					'@aws-sdk/credential-provider-node',
+					'@aws-sdk/credential-provider-ini',
+					'@aws-sdk/credential-provider-process',
+					'@aws-sdk/credential-provider-sso',
+					'@aws-sdk/credential-provider-ec2',
+					'@aws-sdk/credential-provider-ecs',
+					'@aws-sdk/credential-provider-env'
+				];
+				
+				return nodeSpecificModules.some(module => id.includes(module));
 			},
 			// Ensure proper import resolution for static files
 			preserveEntrySignatures: 'strict'

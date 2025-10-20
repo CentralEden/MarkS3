@@ -14,38 +14,30 @@ if (typeof window !== 'undefined') {
 
 // Process polyfill - required for AWS SDK and other Node.js modules
 import processPolyfill from 'process';
+
+// Create a custom process object to avoid read-only property issues
+const customProcess = {
+  ...processPolyfill,
+  browser: true,
+  version: 'v18.0.0',
+  platform: 'browser',
+  arch: 'x64',
+  title: 'browser',
+  env: processPolyfill.env || {},
+  cwd: () => '/',
+  chdir: () => {},
+  umask: () => 0,
+  nextTick: processPolyfill.nextTick || ((fn, ...args) => {
+    return Promise.resolve().then(() => fn(...args));
+  })
+};
+
+// Set the custom process globally
 if (typeof globalThis !== 'undefined') {
-  globalThis.process = processPolyfill;
+  globalThis.process = customProcess;
 }
 if (typeof window !== 'undefined') {
-  window.process = processPolyfill;
-}
-
-// Use the imported process for configuration
-const process = processPolyfill;
-
-// Ensure process.env exists with default values
-if (!process.env) {
-  process.env = {};
-}
-
-// Set browser-specific process properties
-process.browser = true;
-process.version = 'v18.0.0';
-process.platform = 'browser';
-process.arch = 'x64';
-process.title = 'browser';
-
-// Add process methods
-process.cwd = () => '/';
-process.chdir = () => {};
-process.umask = () => 0;
-
-// Add process.nextTick if not available
-if (!process.nextTick) {
-  process.nextTick = (fn, ...args) => {
-    return Promise.resolve().then(() => fn(...args));
-  };
+  window.process = customProcess;
 }
 
 // Additional global polyfills for compatibility
@@ -96,4 +88,5 @@ if (typeof globalThis !== 'undefined') {
 }
 
 // Export for module compatibility
-export { Buffer, process };
+export { Buffer };
+export const process = customProcess;
