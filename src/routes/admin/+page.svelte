@@ -52,6 +52,13 @@
       >
         Settings
       </button>
+      <button 
+        class="nav-button" 
+        class:active={activeTab === 'monitoring'}
+        on:click={() => setActiveTab('monitoring')}
+      >
+        Monitoring
+      </button>
     </nav>
 
     <main class="admin-content">
@@ -70,6 +77,14 @@
           <SettingsManagement />
         {:catch error}
           <div class="error">Failed to load settings: {error.message}</div>
+        {/await}
+      {:else if activeTab === 'monitoring'}
+        {#await import('$lib/components/admin/MonitoringDashboard.svelte')}
+          <div class="loading">Loading monitoring dashboard...</div>
+        {:then { default: MonitoringDashboard }}
+          <MonitoringDashboard />
+        {:catch error}
+          <div class="error">Failed to load monitoring dashboard: {error.message}</div>
         {/await}
       {/if}
     </main>

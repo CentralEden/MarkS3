@@ -338,6 +338,181 @@ class MarkS3Deployer {
     }
   }
 
+  // Build validation methods
+  async validateBuild() {
+    this.info('Validating build output...');
+    
+    const buildDir = join(rootDir, 'build');
+    if (!existsSync(buildDir)) {
+      throw new DeploymentError(
+        'Build directory not found. Run build first.',
+        'BUILD_DIR_NOT_FOUND'
+      );
+    }
+
+    // Check for essential files
+    const essentialFiles = [
+      'index.html',
+      '_app/immutable/entry/start.js',
+      '_app/immutable/entry/app.js'
+    ];
+
+    for (const file of essentialFiles) {
+      const filePath = join(buildDir, file);
+      if (!existsSync(filePath)) {
+        throw new DeploymentError(
+          `Essential build file missing: ${file}`,
+          'ESSENTIAL_FILE_MISSING'
+        );
+      }
+    }
+
+    // Validate bundle size
+    try {
+      const bundleAnalysis = execSync('node scripts/bundle-monitor.js --check', {
+        cwd: rootDir,
+        encoding: 'utf8'
+      });
+      this.success('Bundle size validation passed');
+    } catch (error) {
+      this.warning('Bundle size validation failed, but continuing deployment');
+    }
+
+    // Run build validation tests
+    try {
+      execSync('npm run test:build', {
+        cwd: rootDir,
+        stdio: 'inherit'
+      });
+      this.success('Build validation tests passed');
+    } catch (error) {
+      throw new DeploymentError(
+        'Build validation tests failed',
+        'BUILD_VALIDATION_FAILED'
+      );
+    }
+
+    this.success('Build validation completed');
+  }
+
+  async performHealthCheck() {
+    this.info('Performing deployment health check...');
+    
+    const bucketName = this.terraformOutputs.bucket_name?.value;
+    const domainName = this.config.domainName || this.terraformOutputs.website_endpoint?.value;
+    
+    try {
+      // Check if S3 bucket is accessible
+      execSync(`aws s3 ls s3://${bucketName}/`, {
+        stdio: 'pipe'
+      });
+      this.success('S3 bucket is accessible');
+
+      // Check if index.html exists and is accessible
+      const indexCheck = execSync(`aws s3 ls s3://${bucketName}/index.html`, {
+        encoding: 'utf8',
+        stdio: 'pipe'
+      });
+      
+      if (indexCheck.trim()) {
+        this.success('Application files deployed successfully');
+      } else {
+        throw new Error('index.html not found in S3 bucket');
+      }
+
+      // Test HTTP endpoint if available
+      if (domainName) {
+        try {
+          const curlCommand = process.platform === 'win32' 
+            ? `curl -s -o nul -w "%{http_code}" https://${domainName}`
+            : `curl -s -o /dev/null -w "%{http_code}" https://${domainName}`;
+          
+          const httpStatus = execSync(curlCommand, {
+            encoding: 'utf8',
+            stdio: 'pipe'
+          }).trim();
+
+          if (httpStatus === '200') {
+            this.success('Website is responding correctly');
+          } else {
+            this.warning(`Website returned HTTP ${httpStatus}, may need time to propagate`);
+          }
+        } catch (error) {
+          this.warning('Could not test website endpoint, may need time to propagate');
+        }
+      }
+
+    } catch (error) {
+      throw new DeploymentError(
+        `Health check failed: ${error.message}`,
+        'HEALTH_CHECK_FAILED'
+      );
+    }
+  }
+
+  async createBackup() {
+    this.info('Creating backup of current deployment...');
+    
+    const bucketName = this.terraformOutputs.bucket_name?.value;
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const backupPrefix = `backups/${timestamp}`;
+    
+    try {
+      // Check if bucket has existing content
+      const existingContent = execSync(`aws s3 ls s3://${bucketName}/ --recursive`, {
+        encoding: 'utf8',
+        stdio: 'pipe'
+      });
+
+      if (existingContent.trim()) {
+        // Create backup by copying existing content
+        execSync(`aws s3 sync s3://${bucketName}/ s3://${bucketName}/${backupPrefix}/ --exclude "backups/*"`, {
+          stdio: 'inherit'
+        });
+        this.success(`Backup created at s3://${bucketName}/${backupPrefix}/`);
+        return backupPrefix;
+      } else {
+        this.info('No existing content to backup');
+        return null;
+      }
+    } catch (error) {
+      this.warning('Could not create backup, continuing with deployment');
+      return null;
+    }
+  }
+
+  async rollback(backupPrefix) {
+    if (!backupPrefix) {
+      throw new DeploymentError(
+        'No backup available for rollback',
+        'NO_BACKUP_AVAILABLE'
+      );
+    }
+
+    this.info(`Rolling back to backup: ${backupPrefix}`);
+    
+    const bucketName = this.terraformOutputs.bucket_name?.value;
+    
+    try {
+      // Clear current content (except backups)
+      execSync(`aws s3 rm s3://${bucketName}/ --recursive --exclude "backups/*"`, {
+        stdio: 'inherit'
+      });
+
+      // Restore from backup
+      execSync(`aws s3 sync s3://${bucketName}/${backupPrefix}/ s3://${bucketName}/ --exclude "backups/*"`, {
+        stdio: 'inherit'
+      });
+
+      this.success('Rollback completed successfully');
+    } catch (error) {
+      throw new DeploymentError(
+        `Rollback failed: ${error.message}`,
+        'ROLLBACK_FAILED'
+      );
+    }
+  }
+
   // Application build methods
   async generateAppConfig() {
     this.info('Generating application configuration...');
@@ -448,9 +623,28 @@ class MarkS3Deployer {
       await this.getTerraformOutputs();
 
       // Application build and deployment
-      const appConfig = await this.generateAppConfig();
+      await this.generateAppConfig();
       await this.buildApplication();
-      await this.uploadToS3();
+      await this.validateBuild();
+      
+      // Create backup before deployment
+      const backupPrefix = await this.createBackup();
+      
+      try {
+        await this.uploadToS3();
+        await this.performHealthCheck();
+      } catch (error) {
+        this.error('Deployment failed, attempting rollback...');
+        if (backupPrefix) {
+          try {
+            await this.rollback(backupPrefix);
+            this.info('Rollback completed successfully');
+          } catch (rollbackError) {
+            this.error(`Rollback also failed: ${rollbackError.message}`);
+          }
+        }
+        throw error;
+      }
 
       // Success message
       this.log('\\n🎉 Deployment completed successfully!', 'green');

@@ -18,6 +18,7 @@ import type { AWSConfig } from '../types/aws.js';
 import { WikiError, ErrorCodes } from '../types/errors.js';
 import { getAWSConfig } from '../config/app.js';
 import { executeWithRetry, AWSService, createUserFriendlyError } from '../utils/awsErrorHandler.js';
+import { monitoringService } from './monitoring.js';
 
 export class AuthService implements IAuthService {
   private cognitoClient: CognitoIdentityProviderClient;
@@ -59,6 +60,8 @@ export class AuthService implements IAuthService {
    * Authenticate user with username and password
    */
   async login(username: string, password: string): Promise<AuthResult> {
+    const startTime = performance.now();
+    
     try {
       const authParams: InitiateAuthCommandInput = {
         AuthFlow: 'USER_PASSWORD_AUTH' as AuthFlowType,
@@ -103,6 +106,11 @@ export class AuthService implements IAuthService {
       // Persist session
       this.persistSession();
 
+      // Track successful authentication
+      const duration = performance.now() - startTime;
+      monitoringService.trackAuthenticationSuccess(duration);
+      monitoringService.setUserId(user.id);
+
       return {
         success: true,
         user,
@@ -111,6 +119,16 @@ export class AuthService implements IAuthService {
 
     } catch (error) {
       console.error('Login error:', error);
+      
+      // Track authentication failure
+      const duration = performance.now() - startTime;
+      const errorMessage = error instanceof Error ? error.message : 'Unknown auth error';
+      monitoringService.trackDeploymentMetric({
+        type: 'auth_success',
+        success: false,
+        duration,
+        error: errorMessage
+      });
       
       if (error instanceof WikiError) {
         return {

@@ -57,8 +57,16 @@ resource "aws_s3_bucket_cors_configuration" "wiki_bucket_cors" {
   bucket = aws_s3_bucket.wiki_bucket.id
 
   cors_rule {
-    allowed_headers = ["*"]
-    allowed_methods = ["GET", "PUT", "POST", "DELETE", "HEAD"]
+    allowed_headers = [
+      "*",
+      "Content-Type",
+      "Content-Length",
+      "Authorization",
+      "X-Amz-Date",
+      "X-Api-Key",
+      "X-Amz-Security-Token"
+    ]
+    allowed_methods = ["GET", "PUT", "POST", "DELETE", "HEAD", "OPTIONS"]
     allowed_origins = var.domain_name != null ? [
       "https://${var.domain_name}",
       "http://localhost:5173",  # Vite dev server
@@ -68,9 +76,32 @@ resource "aws_s3_bucket_cors_configuration" "wiki_bucket_cors" {
       "http://localhost:5173",
       "http://localhost:4173"
     ]
-    expose_headers  = ["ETag"]
-    max_age_seconds = 3000
+    expose_headers  = [
+      "ETag",
+      "Content-Type",
+      "Content-Length",
+      "Last-Modified",
+      "Cache-Control"
+    ]
+    max_age_seconds = 86400  # 24 hours for preflight requests
   }
+}
+
+# S3 Bucket notification configuration for proper MIME types
+resource "aws_s3_bucket_notification" "wiki_bucket_notification" {
+  bucket = aws_s3_bucket.wiki_bucket.id
+  
+  lambda_function {
+    lambda_function_arn = aws_lambda_function.mime_type_handler.arn
+    events              = ["s3:ObjectCreated:*"]
+    filter_prefix       = ""
+    filter_suffix       = ""
+  }
+  
+  depends_on = [
+    aws_lambda_permission.s3_invoke_lambda,
+    aws_s3_bucket_policy.wiki_bucket_policy
+  ]
 }
 
 # S3 Bucket policy for public read access and authenticated write access
@@ -108,3 +139,95 @@ data "aws_region" "current" {}
 
 # Data source for current AWS caller identity
 data "aws_caller_identity" "current" {}
+
+# Lambda function for setting proper MIME types on S3 objects
+resource "aws_lambda_function" "mime_type_handler" {
+  filename         = "${path.module}/mime-type-handler.zip"
+  function_name    = "${var.resource_prefix}-mime-type-handler"
+  role            = aws_iam_role.lambda_role.arn
+  handler         = "index.handler"
+  runtime         = "nodejs18.x"
+  timeout         = 30
+
+  source_code_hash = data.archive_file.mime_type_handler_zip.output_base64sha256
+
+  environment {
+    variables = {
+      BUCKET_NAME = aws_s3_bucket.wiki_bucket.bucket
+    }
+  }
+
+  tags = var.tags
+}
+
+# IAM role for Lambda function
+resource "aws_iam_role" "lambda_role" {
+  name = "${var.resource_prefix}-mime-type-lambda-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = var.tags
+}
+
+# IAM policy for Lambda function
+resource "aws_iam_role_policy" "lambda_policy" {
+  name = "${var.resource_prefix}-mime-type-lambda-policy"
+  role = aws_iam_role.lambda_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
+        Resource = "arn:aws:logs:*:*:*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:PutObjectAcl"
+        ]
+        Resource = "${aws_s3_bucket.wiki_bucket.arn}/*"
+      }
+    ]
+  })
+}
+
+# Lambda permission for S3 to invoke the function
+resource "aws_lambda_permission" "s3_invoke_lambda" {
+  statement_id  = "AllowExecutionFromS3Bucket"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.mime_type_handler.function_name
+  principal     = "s3.amazonaws.com"
+  source_arn    = aws_s3_bucket.wiki_bucket.arn
+}
+
+# Archive file for Lambda function
+data "archive_file" "mime_type_handler_zip" {
+  type        = "zip"
+  output_path = "${path.module}/mime-type-handler.zip"
+  
+  source {
+    content = templatefile("${path.module}/mime-type-handler.js", {
+      bucket_name = aws_s3_bucket.wiki_bucket.bucket
+    })
+    filename = "index.js"
+  }
+}

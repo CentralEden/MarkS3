@@ -27,6 +27,7 @@ import type {
 import { WikiError, ErrorCodes } from '../types/index.js';
 import { getAWSConfig, APP_CONFIG } from '../config/app.js';
 import { executeWithRetry, AWSService, createUserFriendlyError } from '../utils/awsErrorHandler.js';
+import { monitoringService } from './monitoring.js';
 
 /**
  * S3 Service implementation
@@ -162,6 +163,8 @@ export class S3Service implements IS3Service {
    * Save a wiki page to S3 with optimistic locking
    */
   async savePage(page: WikiPage, etag?: string): Promise<SaveResult> {
+    const startTime = performance.now();
+    
     try {
       const key = APP_CONFIG.s3Paths.pages + page.path;
       
@@ -207,6 +210,10 @@ export class S3Service implements IS3Service {
         expectedVersion: etag
       });
 
+      // Track successful file operation
+      const duration = performance.now() - startTime;
+      monitoringService.trackFileOperation(true, duration);
+
       return {
         success: true,
         etag: response.ETag?.replace(/"/g, '') || '',
@@ -232,6 +239,12 @@ export class S3Service implements IS3Service {
           };
         }
       }
+      
+      // Track failed file operation
+      const duration = performance.now() - startTime;
+      const errorMessage = error instanceof Error ? error.message : 'Unknown S3 error';
+      monitoringService.trackFileOperation(false, duration, errorMessage);
+      
       throw this.handleS3Error(error);
     }
   }

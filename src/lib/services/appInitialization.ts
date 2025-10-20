@@ -3,11 +3,11 @@
  * Handles startup tasks, configuration loading, and error handling
  */
 
-import { get } from 'svelte/store';
 import { authStore } from '../stores/auth.js';
 import { s3Service } from './s3.js';
 import { wikiService } from './wiki.js';
 import { fileService } from './files.js';
+import { monitoringService } from './monitoring.js';
 import type { WikiConfig } from '../types/wiki.js';
 import { WikiError, ErrorCodes } from '../types/errors.js';
 
@@ -95,6 +95,7 @@ class AppInitializationService {
 
   private async performInitialization(): Promise<InitializationResult> {
     const warnings: string[] = [];
+    const startTime = performance.now();
 
     try {
       // Stage 1: Starting
@@ -103,6 +104,9 @@ class AppInitializationService {
         message: 'Initializing application...',
         progress: 0
       });
+
+      // Track page load start
+      monitoringService.trackPageLoad(true, 0);
 
       // Stage 2: Authentication
       this.updateStatus({
@@ -155,6 +159,10 @@ class AppInitializationService {
         progress: 100
       });
 
+      // Track successful initialization
+      const duration = performance.now() - startTime;
+      monitoringService.trackPageLoad(true, duration);
+
       return {
         success: true,
         config,
@@ -171,6 +179,15 @@ class AppInitializationService {
       });
 
       console.error('Application initialization failed:', error);
+      
+      // Track initialization failure
+      const duration = performance.now() - startTime;
+      monitoringService.trackPageLoad(false, duration, errorMessage);
+      monitoringService.trackError({
+        message: `App initialization failed: ${errorMessage}`,
+        stack: error instanceof Error ? error.stack : undefined,
+        url: window.location.href
+      });
       
       return {
         success: false,
