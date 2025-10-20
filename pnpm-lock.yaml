@@ -28,6 +28,15 @@ dependencies:
   '@milkdown/theme-nord':
     specifier: ^7.0.0
     version: 7.0.0(@milkdown/core@7.0.0)(@milkdown/ctx@7.17.1)(@milkdown/prose@7.17.1)
+  '@smithy/fetch-http-handler':
+    specifier: ^5.3.4
+    version: 5.3.4
+  '@smithy/protocol-http':
+    specifier: ^5.3.3
+    version: 5.3.3
+  '@smithy/types':
+    specifier: ^4.8.0
+    version: 4.8.0
   dompurify:
     specifier: ^3.3.0
     version: 3.3.0

@@ -352,9 +352,7 @@ class MarkS3Deployer {
 
     // Check for essential files
     const essentialFiles = [
-      'index.html',
-      '_app/immutable/entry/start.js',
-      '_app/immutable/entry/app.js'
+      'index.html'
     ];
 
     for (const file of essentialFiles) {
@@ -365,6 +363,35 @@ class MarkS3Deployer {
           'ESSENTIAL_FILE_MISSING'
         );
       }
+    }
+
+    // Check for essential directories and patterns
+    const entryDir = join(buildDir, '_app/immutable/entry');
+    if (!existsSync(entryDir)) {
+      throw new DeploymentError(
+        'Essential build directory missing: _app/immutable/entry',
+        'ESSENTIAL_DIR_MISSING'
+      );
+    }
+
+    // Check if entry files exist (with hash)
+    const { readdirSync } = await import('fs');
+    const entryFiles = readdirSync(entryDir);
+    const hasStartJs = entryFiles.some(file => file.startsWith('start.') && file.endsWith('.js'));
+    const hasAppJs = entryFiles.some(file => file.startsWith('app.') && file.endsWith('.js'));
+
+    if (!hasStartJs) {
+      throw new DeploymentError(
+        'Essential build file missing: start.*.js in _app/immutable/entry',
+        'ESSENTIAL_FILE_MISSING'
+      );
+    }
+
+    if (!hasAppJs) {
+      throw new DeploymentError(
+        'Essential build file missing: app.*.js in _app/immutable/entry',
+        'ESSENTIAL_FILE_MISSING'
+      );
     }
 
     // Validate bundle size

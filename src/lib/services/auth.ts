@@ -19,6 +19,7 @@ import { WikiError, ErrorCodes } from '../types/errors.js';
 import { getAWSConfig } from '../config/app.js';
 import { executeWithRetry, AWSService, createUserFriendlyError } from '../utils/awsErrorHandler.js';
 import { monitoringService } from './monitoring.js';
+import { browserRequestHandlerConfig } from '../config/browserHttpHandler.js';
 
 export class AuthService implements IAuthService {
   private cognitoClient: CognitoIdentityProviderClient;
@@ -34,22 +35,17 @@ export class AuthService implements IAuthService {
     // Initialize Cognito client with browser-compatible configuration
     this.cognitoClient = new CognitoIdentityProviderClient({
       region: this.config.region,
-      // Browser-specific configuration
-      requestHandler: {
-        requestTimeout: 30000,
-        // Remove Node.js specific httpsAgent
-        httpsAgent: undefined
-      },
+      // Use browser-compatible HTTP handler configuration
+      ...browserRequestHandlerConfig,
       // Use browser-compatible credentials when available
       credentials: typeof window !== 'undefined' ? fromCognitoIdentityPool({
-        clientConfig: { region: this.config.region },
+        clientConfig: { 
+          region: this.config.region,
+          // Ensure browser-compatible HTTP handler for credential provider
+          ...browserRequestHandlerConfig
+        },
         identityPoolId: this.config.cognitoIdentityPoolId
-      }) : undefined,
-      // Ensure proper browser compatibility
-      runtime: 'browser',
-      // Add retry configuration for network resilience
-      maxAttempts: 3,
-      retryMode: 'adaptive'
+      }) : undefined
     });
     
     // Try to restore session from localStorage

@@ -29,13 +29,10 @@ export default defineConfig({
 	base: '',
 	define: {
 		global: 'globalThis',
-		'process.env': {},
-		// Define process for AWS SDK compatibility
-		'process.version': JSON.stringify('v18.0.0'),
-		'process.platform': JSON.stringify('browser'),
+		// Define process for AWS SDK compatibility - use more compatible approach
+		'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'production'),
 		'process.browser': true,
 		// Additional Node.js compatibility defines
-		'process.cwd': JSON.stringify('/'),
 		'__dirname': JSON.stringify('/'),
 		'__filename': JSON.stringify('/')
 	},
@@ -89,7 +86,6 @@ export default defineConfig({
 			'node:child_process': resolve('./src/lib/polyfills/child_process.js'),
 			// Redirect Node.js specific AWS SDK modules to empty modules
 			'@aws-sdk/node-http-handler': resolve('./src/lib/polyfills/empty.js'),
-			'@smithy/node-http-handler': resolve('./src/lib/polyfills/empty.js'),
 			'@aws-sdk/hash-node': resolve('./src/lib/polyfills/empty.js'),
 			'@smithy/hash-node': resolve('./src/lib/polyfills/empty.js'),
 			'@aws-sdk/credential-provider-node': resolve('./src/lib/polyfills/empty.js'),
@@ -98,7 +94,33 @@ export default defineConfig({
 			'@aws-sdk/credential-provider-sso': resolve('./src/lib/polyfills/empty.js'),
 			'@aws-sdk/credential-provider-ec2': resolve('./src/lib/polyfills/empty.js'),
 			'@aws-sdk/credential-provider-ecs': resolve('./src/lib/polyfills/empty.js'),
-			'@aws-sdk/credential-provider-env': resolve('./src/lib/polyfills/empty.js')
+			'@aws-sdk/credential-provider-env': resolve('./src/lib/polyfills/empty.js'),
+			// Additional Smithy Node.js modules that need to be excluded
+			'@smithy/node-config-provider': resolve('./src/lib/polyfills/empty.js'),
+			'@smithy/credential-provider-imds': resolve('./src/lib/polyfills/empty.js'),
+			'@smithy/shared-ini-file-loader': resolve('./src/lib/polyfills/empty.js'),
+			'@smithy/property-provider': resolve('./src/lib/polyfills/empty.js'),
+			'@smithy/abort-controller': resolve('./src/lib/polyfills/empty.js'),
+			// Additional comprehensive Smithy Node.js exclusions
+			'@smithy/config-resolver': resolve('./src/lib/polyfills/empty.js'),
+			'@smithy/credential-provider-env': resolve('./src/lib/polyfills/empty.js'),
+			'@smithy/credential-provider-process': resolve('./src/lib/polyfills/empty.js'),
+			'@smithy/credential-provider-sso': resolve('./src/lib/polyfills/empty.js'),
+			'@smithy/credential-provider-web-identity': resolve('./src/lib/polyfills/empty.js'),
+			'@smithy/node-http-handler': resolve('./src/lib/polyfills/empty.js'),
+			'@smithy/util-config-provider': resolve('./src/lib/polyfills/empty.js'),
+			'@smithy/util-credentials': resolve('./src/lib/polyfills/empty.js'),
+			// Additional Smithy modules that might be problematic
+			'@smithy/util-defaults-mode-node': resolve('./src/lib/polyfills/empty.js'),
+			'@smithy/util-defaults-mode-browser': resolve('./src/lib/polyfills/empty.js'),
+			'@smithy/util-user-agent-node': resolve('./src/lib/polyfills/empty.js'),
+			'@smithy/util-user-agent-browser': resolve('./src/lib/polyfills/empty.js'),
+			'@smithy/middleware-user-agent': resolve('./src/lib/polyfills/empty.js'),
+			'@smithy/middleware-retry': resolve('./src/lib/polyfills/empty.js'),
+			'@smithy/util-retry': resolve('./src/lib/polyfills/empty.js'),
+			'@smithy/service-error-classification': resolve('./src/lib/polyfills/empty.js'),
+			'@smithy/util-body-length-node': resolve('./src/lib/polyfills/empty.js'),
+			'@smithy/util-body-length-browser': resolve('./src/lib/polyfills/empty.js')
 		}
 	},
 	optimizeDeps: {
@@ -109,6 +131,10 @@ export default defineConfig({
 			'@aws-sdk/client-cognito-identity-provider',
 			'@aws-sdk/credential-providers',
 			'@aws-sdk/types',
+			// Smithy browser-compatible modules
+			'@smithy/fetch-http-handler',
+			'@smithy/protocol-http',
+			'@smithy/types',
 			// Essential polyfills for Node.js APIs
 			'buffer',
 			'process/browser',
@@ -134,8 +160,21 @@ export default defineConfig({
 			'@aws-sdk/credential-provider-ec2',
 			'@aws-sdk/credential-provider-ecs',
 			'@aws-sdk/credential-provider-env',
+			// Exclude all Smithy Node.js specific modules
 			'@smithy/node-http-handler',
-			'@smithy/hash-node'
+			'@smithy/hash-node',
+			'@smithy/node-config-provider',
+			'@smithy/credential-provider-imds',
+			'@smithy/shared-ini-file-loader',
+			'@smithy/property-provider',
+			'@smithy/abort-controller',
+			'@smithy/config-resolver',
+			'@smithy/credential-provider-env',
+			'@smithy/credential-provider-process',
+			'@smithy/credential-provider-sso',
+			'@smithy/credential-provider-web-identity',
+			'@smithy/util-config-provider',
+			'@smithy/util-credentials'
 		]
 	},
 	build: {
@@ -153,7 +192,19 @@ export default defineConfig({
 					if (id.includes('@smithy/node-http-handler') || 
 						id.includes('@aws-sdk/node-http-handler') ||
 						id.includes('@smithy/hash-node') ||
-						id.includes('@aws-sdk/hash-node')) {
+						id.includes('@aws-sdk/hash-node') ||
+						id.includes('@smithy/node-config-provider') ||
+						id.includes('@smithy/credential-provider-imds') ||
+						id.includes('@smithy/shared-ini-file-loader') ||
+						id.includes('@smithy/property-provider') ||
+						id.includes('@smithy/abort-controller') ||
+						id.includes('@smithy/config-resolver') ||
+						id.includes('@smithy/credential-provider-env') ||
+						id.includes('@smithy/credential-provider-process') ||
+						id.includes('@smithy/credential-provider-sso') ||
+						id.includes('@smithy/credential-provider-web-identity') ||
+						id.includes('@smithy/util-config-provider') ||
+						id.includes('@smithy/util-credentials')) {
 						return undefined;
 					}
 					
@@ -257,7 +308,20 @@ export default defineConfig({
 					'@aws-sdk/credential-provider-sso',
 					'@aws-sdk/credential-provider-ec2',
 					'@aws-sdk/credential-provider-ecs',
-					'@aws-sdk/credential-provider-env'
+					'@aws-sdk/credential-provider-env',
+					// Additional Smithy Node.js modules
+					'@smithy/node-config-provider',
+					'@smithy/credential-provider-imds',
+					'@smithy/shared-ini-file-loader',
+					'@smithy/property-provider',
+					'@smithy/abort-controller',
+					'@smithy/config-resolver',
+					'@smithy/credential-provider-env',
+					'@smithy/credential-provider-process',
+					'@smithy/credential-provider-sso',
+					'@smithy/credential-provider-web-identity',
+					'@smithy/util-config-provider',
+					'@smithy/util-credentials'
 				];
 				
 				return nodeSpecificModules.some(module => id.includes(module));

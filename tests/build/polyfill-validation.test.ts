@@ -6,8 +6,8 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync, existsSync, readdirSync } from 'fs';
 import { resolve, join } from 'path';
 
-const DIST_PATH = resolve(process.cwd(), 'dist');
-const ASSETS_PATH = join(DIST_PATH, 'assets');
+const DIST_PATH = resolve(process.cwd(), 'build');
+const ASSETS_PATH = join(DIST_PATH, '_app/immutable');
 
 describe('Polyfill Validation', () => {
   let bundleContent: string;

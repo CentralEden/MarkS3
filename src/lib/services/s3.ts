@@ -28,6 +28,7 @@ import { WikiError, ErrorCodes } from '../types/index.js';
 import { getAWSConfig, APP_CONFIG } from '../config/app.js';
 import { executeWithRetry, AWSService, createUserFriendlyError } from '../utils/awsErrorHandler.js';
 import { monitoringService } from './monitoring.js';
+import { browserRequestHandlerConfig } from '../config/browserHttpHandler.js';
 
 /**
  * S3 Service implementation
@@ -44,26 +45,17 @@ export class S3Service implements IS3Service {
     // Initialize S3 client with browser-compatible configuration
     this.s3Client = new S3Client({
       region: this.config.region,
-      // Browser-specific request handler configuration
-      requestHandler: {
-        requestTimeout: 30000,
-        // Remove Node.js specific httpsAgent for browser compatibility
-        httpsAgent: undefined
-      },
+      // Use browser-compatible HTTP handler configuration
+      ...browserRequestHandlerConfig,
       // Use browser-compatible Cognito credentials
       credentials: fromCognitoIdentityPool({
         clientConfig: { 
           region: this.config.region,
-          // Ensure browser compatibility
-          runtime: 'browser'
+          // Ensure browser-compatible HTTP handler for credential provider
+          ...browserRequestHandlerConfig
         },
         identityPoolId: this.config.cognitoIdentityPoolId
       }),
-      // Browser-specific configuration
-      runtime: 'browser',
-      // Add retry configuration for network resilience
-      maxAttempts: 3,
-      retryMode: 'adaptive',
       // CORS-compatible request signing
       forcePathStyle: false, // Use virtual-hosted-style requests for better CORS support
       // Ensure proper browser request handling

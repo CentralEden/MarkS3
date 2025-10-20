@@ -66,7 +66,7 @@ resource "aws_s3_bucket_cors_configuration" "wiki_bucket_cors" {
       "X-Api-Key",
       "X-Amz-Security-Token"
     ]
-    allowed_methods = ["GET", "PUT", "POST", "DELETE", "HEAD", "OPTIONS"]
+    allowed_methods = ["GET", "PUT", "POST", "DELETE", "HEAD"]
     allowed_origins = var.domain_name != null ? [
       "https://${var.domain_name}",
       "http://localhost:5173",  # Vite dev server
@@ -225,9 +225,7 @@ data "archive_file" "mime_type_handler_zip" {
   output_path = "${path.module}/mime-type-handler.zip"
   
   source {
-    content = templatefile("${path.module}/mime-type-handler.js", {
-      bucket_name = aws_s3_bucket.wiki_bucket.bucket
-    })
+    content  = file("${path.module}/mime-type-handler.js")
     filename = "index.js"
   }
 }

@@ -38,6 +38,19 @@
 3. WHILE AWS_SDKモジュールをバンドルする間、THE Module_Bundlerはサーバー専用の依存関係を除外しなければならない
 4. WHEN 静的アセットを生成する時、THE Module_BundlerはStatic_Hosting用の適切なインポートパスを作成しなければならない
 5. WHERE 外部依存関係が存在する場合、THE Module_Bundlerは必要なポリフィルをバンドルに含めなければならない
+6. WHEN @smithy/node-http-handlerモジュールが参照される時、THE Module_Bundlerはブラウザ互換のHTTPハンドラーに置き換えなければならない
+
+### 要件5
+
+**ユーザーストーリー:** ブラウザでMarkS3アプリケーションを使用するユーザーとして、Smithyライブラリの依存関係エラーが発生しないことを望み、すべてのAWS操作が正常に実行されるようにしたい。
+
+#### 受け入れ基準
+
+1. WHEN AWS_SDKがHTTPリクエストを実行する時、THE MarkS3_Applicationはブラウザ互換のHTTPハンドラーを使用しなければならない
+2. WHEN Smithyクライアントが初期化される時、THE Module_Bundlerは適切なブラウザ用HTTPハンドラーを提供しなければならない
+3. IF Node.js専用のSmithyモジュールが検出された場合、THEN THE Module_Bundlerはそれらを除外またはブラウザ互換版に置き換えなければならない
+4. WHILE AWS操作を実行している間、THE MarkS3_Applicationはfetch APIまたはXMLHttpRequestを使用しなければならない
+5. WHERE HTTPハンドラー設定が必要な場合、THE AWS_SDKはブラウザ環境に適したハンドラーを自動選択しなければならない
 
 ### 要件3
 

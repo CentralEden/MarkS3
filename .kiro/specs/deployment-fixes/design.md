@@ -45,6 +45,8 @@
 - Node.js専用モジュールの適切な外部化
 - AWS SDK用の最適化されたチャンク分割
 - ブラウザ固有のビルドターゲット
+- Smithyライブラリの Node.js専用モジュール除外設定
+- ブラウザ互換HTTPハンドラーの明示的設定
 
 ### 2. AWS SDKブラウザ互換性
 
@@ -55,6 +57,16 @@
 - ブラウザ用の認証情報プロバイダーを設定
 - ネットワークリクエストの適切なエラーハンドリングを実装
 - 失敗したリクエストのリトライロジックを追加
+
+### 2.1. Smithyライブラリ互換性修正
+
+**問題**: `@smithy/node-http-handler`はNode.js専用モジュールでブラウザでは使用不可
+
+**解決策**:
+- Vite設定でNode.js専用Smithyモジュールを除外
+- ブラウザ互換のHTTPハンドラーを明示的に設定
+- AWS SDKクライアント初期化時にブラウザ用ハンドラーを指定
+- 動的インポートでのSmithyモジュール参照を修正
 
 ### 3. 静的ホスティング最適化
 
@@ -118,6 +130,18 @@ interface AWSConfig {
   retry: {
     maxAttempts: number;
     backoff: 'exponential' | 'linear';
+  };
+  httpHandler: {
+    type: 'browser' | 'node';
+    requestHandler?: RequestHandler;
+  };
+}
+
+interface SmithyBrowserConfig {
+  excludeNodeModules: string[];
+  browserHttpHandler: string;
+  polyfillModules: {
+    [key: string]: string | false;
   };
 }
 ```

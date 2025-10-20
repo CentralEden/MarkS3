@@ -5,6 +5,7 @@
   "type": "module",
   "packageManager": "pnpm@8.0.0",
   "scripts": {
+    "git:push": "git add . && git commit -m \"docs: clean up deployment-fixes tasks formatting\" && git push",
     "setup:github": "node scripts/setup-github.js",
     "dev": "vite dev",
     "build": "vite build",
@@ -79,6 +80,9 @@
     "@milkdown/plugin-listener": "^7.0.0",
     "@milkdown/preset-commonmark": "^7.0.0",
     "@milkdown/theme-nord": "^7.0.0",
+    "@smithy/fetch-http-handler": "^5.3.4",
+    "@smithy/protocol-http": "^5.3.3",
+    "@smithy/types": "^4.8.0",
     "dompurify": "^3.3.0"
   },
   "keywords": [
